@@ -35,3 +35,18 @@ func TestSort(t *testing.T) {
 		t.Errorf("Table doesn't match. Got %q, want %q", result, expected)
 	}
 }
+
+func TestAddRow(t *testing.T) {
+	header := Header{"Name", "Age"}
+	rows := []Row{
+		{"Alice", "20"},
+	}
+	table := Table{header, rows}
+	table.AddRow(Row{"Bob", "30"})
+
+	expected := "|Name|Age|\n|---|---|\n|Alice|20|\n|Bob|30|\n\n"
+	result := table.String()
+	if result != expected {
+		t.Errorf("Table doesn't match. Got %q, want %q", result, expected)
+	}
+}
