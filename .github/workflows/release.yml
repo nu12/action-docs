@@ -1,0 +1,24 @@
+name: Release
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  cd:
+    name: Release
+    uses: nu12/templates/.github/workflows/go-release.yml@main
+    with:
+      go-binary-name: 'action-docs'
+      go-main: 'main.go'
+      go-version: '1.23.6'
+      release-linux-amd64: true
+      release-win-amd64: true
+      release-darwin-amd64: true
+      release-darwin-arm64: true
+      release-docker: false
+      version: '${{ github.ref_name }}'
+    secrets: inherit
