@@ -7,14 +7,17 @@ import (
 )
 
 type Workflow struct {
-	Name string
-	On   struct {
+	Name        string `yaml:"name"`
+	Description string `yaml:"description"`
+	On          struct {
 		WorkflowCall *struct {
 			Inputs  *map[string]Input  `yaml:"inputs"`
 			Outputs *map[string]Output `yaml:"outputs"`
 			Secrets *map[string]Secret `yaml:"secrets"`
 		} `yaml:"workflow_call"`
 	}
+
+	Filename string
 }
 
 type Input struct {
@@ -34,14 +37,15 @@ func (w *Workflow) IsReusableWorkflow() bool {
 }
 
 func (w *Workflow) Markdown() string {
-	md := markdown.H1(w.Name).String()
+	//md := markdown.H1(w.Name).String()
+	md := &markdown.Markdown{}
+	md.Add(markdown.H2(w.Name)).
+		Add(markdown.P("File: " + w.Filename)).
+		Add(markdown.P(w.Description))
 
 	if w.IsReusableWorkflow() {
-		md += markdown.P("Reusable workflow").String()
-
-		md += markdown.H2("Usage example").String()
-
-		md += markdown.Code(`name: My workflow
+		md.Add(markdown.H3("Usage example")).
+			Add(markdown.Code(`name: My workflow
 on:
   push:
     branches:
@@ -51,11 +55,15 @@ jobs:
   my-job:
     uses: .github/workflows/<filename>.yml@main
     with:
-      <list-of-inputs>`).String()
+      <list-of-inputs>`))
+	}
+
+	if w.On.WorkflowCall == nil {
+		return md.String()
 	}
 
 	if w.On.WorkflowCall.Inputs != nil {
-		md += markdown.H2("Inputs").String()
+		md.Add(markdown.H3("Inputs"))
 
 		inputs := markdown.Table{
 			Header: markdown.Header{"Name", "Type", "Description", "Required"},
@@ -64,11 +72,11 @@ jobs:
 			inputs.AddRow(markdown.Row{name, input.Type, input.Description, strconv.FormatBool(input.Required)})
 		}
 
-		md += inputs.Sort(0).String()
+		md.Add(inputs.Sort(0))
 	}
 
 	if w.On.WorkflowCall.Outputs != nil {
-		md += markdown.H2("Outputs").String()
+		md.Add(markdown.H3("Outputs"))
 
 		outputs := markdown.Table{
 			Header: markdown.Header{"Name", "Description"},
@@ -77,11 +85,11 @@ jobs:
 			outputs.AddRow(markdown.Row{name, output.Description})
 		}
 
-		md += outputs.Sort(0).String()
+		md.Add(outputs.Sort(0))
 	}
 
 	if w.On.WorkflowCall.Secrets != nil {
-		md += markdown.H2("Secrets").String()
+		md.Add(markdown.H3("Secrets"))
 
 		secrets := markdown.Table{
 			Header: markdown.Header{"Name", "Required"},
@@ -90,8 +98,8 @@ jobs:
 			secrets.AddRow(markdown.Row{name, strconv.FormatBool(secret.Required)})
 		}
 
-		md += secrets.Sort(0).String()
+		md.Add(secrets.Sort(0))
 	}
 
-	return md
+	return md.String()
 }
