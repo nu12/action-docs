@@ -93,7 +93,7 @@ func TestMarkdown(t *testing.T) {
 		t.Errorf("error: %v", err)
 	}
 
-	expected := "3c702ad36af5342a27057ce620ccd8d6"
+	expected := "70e71065cde9b361763f9e9b650312c4"
 
 	if expected != helper.Hash(result) {
 		t.Errorf("error: %s. Output is:\n%s\nCurrent Hash is: %s, expected hash is: %s", "Markdown doesn't match", result, helper.Hash(result), expected)

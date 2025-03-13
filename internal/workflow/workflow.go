@@ -80,5 +80,18 @@ jobs:
 		md += outputs.Sort(0).String()
 	}
 
+	if w.On.WorkflowCall.Secrets != nil {
+		md += markdown.H2("Secrets").String()
+
+		secrets := markdown.Table{
+			Header: markdown.Header{"Name", "Required"},
+		}
+		for name, secret := range *w.On.WorkflowCall.Secrets {
+			secrets.AddRow(markdown.Row{name, strconv.FormatBool(secret.Required)})
+		}
+
+		md += secrets.Sort(0).String()
+	}
+
 	return md
 }
