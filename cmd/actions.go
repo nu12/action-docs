@@ -6,7 +6,6 @@ import (
 	"github.com/nu12/action-docs/internal/action"
 	"github.com/nu12/action-docs/internal/helper"
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v3"
 )
 
 var actionsCmd = &cobra.Command{
@@ -20,23 +19,12 @@ var actionsCmd = &cobra.Command{
 		if err != nil {
 			log.Fatal(err)
 		}
+
 		for _, file := range files {
-
-			b, err := os.ReadFile(file)
-			if err != nil {
-				log.Fatal(err)
-			}
-
-			a := action.Action{}
-
-			err = yaml.Unmarshal([]byte(b), &a)
-			if err != nil {
-				log.Fatal(err)
-			}
+			a := action.Parse(file, log)
 
 			path := helper.ExtractPath(file)
-			err = os.WriteFile(path+"/README.md", []byte(a.Markdown()), 0644)
-			if err != nil {
+			if err := os.WriteFile(path+"/README.md", []byte(a.Markdown()), 0644); err != nil {
 				log.Fatal(err)
 			}
 		}

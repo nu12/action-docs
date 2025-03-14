@@ -1,9 +1,12 @@
 package workflow
 
 import (
+	"os"
 	"strconv"
 
 	"github.com/nu12/action-docs/internal/markdown"
+	"github.com/nu12/go-logging"
+	"gopkg.in/yaml.v3"
 )
 
 type Workflow struct {
@@ -37,7 +40,6 @@ func (w *Workflow) IsReusableWorkflow() bool {
 }
 
 func (w *Workflow) Markdown() string {
-	//md := markdown.H1(w.Name).String()
 	md := &markdown.Markdown{}
 	md.Add(markdown.H2(w.Name)).
 		Add(markdown.P("File: " + w.Filename)).
@@ -102,4 +104,20 @@ jobs:
 	}
 
 	return md.String()
+}
+
+func Parse(file string, log *logging.Log) *Workflow {
+	w := &Workflow{}
+	b, err := os.ReadFile(file)
+	if err != nil {
+		log.Warning(err.Error())
+		return w
+	}
+
+	err = yaml.Unmarshal([]byte(b), w)
+	if err != nil {
+		log.Warning(err.Error())
+	}
+	w.Filename = file
+	return w
 }

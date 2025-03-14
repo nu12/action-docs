@@ -1,9 +1,11 @@
 package action
 
 import (
+	"os"
 	"testing"
 
 	"github.com/nu12/action-docs/internal/helper"
+	"github.com/nu12/go-logging"
 	"gopkg.in/yaml.v3"
 )
 
@@ -27,12 +29,18 @@ outputs:
 `
 
 func TestAction(t *testing.T) {
-	a := Action{}
+	log := logging.NewLogger()
+	dir := t.TempDir()
+	valid := "action.yml"
 
-	err := yaml.Unmarshal([]byte(data), &a)
+	err := os.WriteFile(dir+"/"+valid, []byte(data), 0644)
 	if err != nil {
-		t.Errorf("error: %v", err)
+		t.Fatalf("error: %v", err)
 	}
+	defer os.Remove(dir + "/" + valid)
+
+	a := Parse(dir+"/"+valid, log)
+
 	if a.Name != "Composite action" {
 		t.Errorf("error: %s", "Name doesn't match")
 	}

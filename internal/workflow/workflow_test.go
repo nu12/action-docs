@@ -1,9 +1,11 @@
 package workflow
 
 import (
+	"os"
 	"testing"
 
 	"github.com/nu12/action-docs/internal/helper"
+	"github.com/nu12/go-logging"
 
 	"gopkg.in/yaml.v3"
 )
@@ -30,13 +32,17 @@ on:
 `
 
 func TestReusableWorkflow(t *testing.T) {
+	log := logging.NewLogger()
+	dir := t.TempDir()
+	valid := "valid.yml"
 
-	w := Workflow{}
-
-	err := yaml.Unmarshal([]byte(data), &w)
+	err := os.WriteFile(dir+"/"+valid, []byte(data), 0644)
 	if err != nil {
-		t.Errorf("error: %v", err)
+		t.Fatalf("error: %v", err)
 	}
+	defer os.Remove(dir + "/" + valid)
+
+	w := Parse(dir+"/"+valid, log)
 
 	if !w.IsReusableWorkflow() {
 		t.Errorf("error: %s", "Should have workflow_call trigger")
