@@ -24,22 +24,20 @@ type Output struct {
 }
 
 func (a *Action) Markdown() string {
-	md := markdown.H1(a.Name).String()
-
-	md += markdown.P(a.Description).String()
-
-	md += markdown.H2("Usage example").String()
-
-	md += markdown.Code(`jobs:
+	md := &markdown.Markdown{}
+	md.Add(markdown.H1(a.Name)).
+		Add(markdown.P(a.Description)).
+		Add(markdown.H2("Usage example")).
+		Add(markdown.Code(`jobs:
   job-name:
     runs-on: <runner>
     steps:
     - uses: path/to/action/folder@main
       with:
-        <list of inputs>`).String()
+        <list of inputs>`))
 
 	if a.Inputs != nil {
-		md += markdown.H2("Inputs").String()
+		md.Add(markdown.H2("Inputs"))
 
 		inputs := markdown.Table{
 			Header: markdown.Header{"Name", "Description", "Required", "Default value"},
@@ -48,11 +46,11 @@ func (a *Action) Markdown() string {
 			inputs.AddRow(markdown.Row{name, input.Description, strconv.FormatBool(input.Required), input.Default})
 		}
 
-		md += inputs.Sort(0).String()
+		md.Add(inputs.Sort(0))
 	}
 
 	if a.Outputs != nil {
-		md += markdown.H2("Outputs").String()
+		md.Add(markdown.H2("Outputs"))
 
 		outputs := markdown.Table{
 			Header: markdown.Header{"Name", "Description"},
@@ -61,8 +59,8 @@ func (a *Action) Markdown() string {
 			outputs.AddRow(markdown.Row{name, output.Description})
 		}
 
-		md += outputs.Sort(0).String()
+		md.Add(outputs.Sort(0))
 	}
 
-	return md
+	return md.String()
 }

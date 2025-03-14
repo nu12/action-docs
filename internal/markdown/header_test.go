@@ -21,3 +21,12 @@ func TestH2(t *testing.T) {
 		t.Errorf("H2 doesn't match. Got %q, want %q", result, expected)
 	}
 }
+
+func TestH3(t *testing.T) {
+	h := H3("Hello")
+	expected := "### Hello\n\n"
+	result := h.String()
+	if result != expected {
+		t.Errorf("H3 doesn't match. Got %q, want %q", result, expected)
+	}
+}

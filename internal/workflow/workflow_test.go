@@ -10,6 +10,7 @@ import (
 
 var data = `
 name: 'Workflow name'
+description: 'Workflow description'
 on: 
   workflow_call:
     inputs: 
@@ -88,12 +89,14 @@ func TestMarkdown(t *testing.T) {
 		t.Errorf("error: %v", err)
 	}
 
+	w.Filename = ".github/workflows/workflow.yml"
+
 	result := w.Markdown()
 	if err != nil {
 		t.Errorf("error: %v", err)
 	}
 
-	expected := "70e71065cde9b361763f9e9b650312c4"
+	expected := "e95dbdab7dc32a8d658597a82fa04529"
 
 	if expected != helper.Hash(result) {
 		t.Errorf("error: %s. Output is:\n%s\nCurrent Hash is: %s, expected hash is: %s", "Markdown doesn't match", result, helper.Hash(result), expected)
