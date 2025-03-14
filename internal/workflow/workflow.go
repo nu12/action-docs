@@ -1,8 +1,11 @@
 package workflow
 
 import (
+	"fmt"
 	"os"
+	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/nu12/action-docs/internal/markdown"
 	"github.com/nu12/go-logging"
@@ -40,6 +43,7 @@ func (w *Workflow) IsReusableWorkflow() bool {
 }
 
 func (w *Workflow) Markdown() string {
+	inputs := w.getInputs()
 	md := &markdown.Markdown{}
 	md.Add(markdown.H2(w.Name)).
 		Add(markdown.P("File: " + w.Filename)).
@@ -47,7 +51,7 @@ func (w *Workflow) Markdown() string {
 
 	if w.IsReusableWorkflow() {
 		md.Add(markdown.H3("Usage example")).
-			Add(markdown.Code(`name: My workflow
+			Add(markdown.Code(fmt.Sprintf(`name: My workflow
 on:
   push:
     branches:
@@ -55,26 +59,26 @@ on:
 
 jobs:
   my-job:
-    uses: .github/workflows/<filename>.yml@main
-    with:
-      <list-of-inputs>`))
+    uses: %s@main
+    with: 
+%s`, w.Filename, listInputs(inputs, 6))))
 	}
 
 	if w.On.WorkflowCall == nil {
 		return md.String()
 	}
 
-	if w.On.WorkflowCall.Inputs != nil {
+	if inputs != nil {
 		md.Add(markdown.H3("Inputs"))
 
-		inputs := markdown.Table{
+		in := markdown.Table{
 			Header: markdown.Header{"Name", "Type", "Description", "Required"},
 		}
-		for name, input := range *w.On.WorkflowCall.Inputs {
-			inputs.AddRow(markdown.Row{name, input.Type, input.Description, strconv.FormatBool(input.Required)})
+		for name, input := range *inputs {
+			in.AddRow(markdown.Row{name, input.Type, input.Description, strconv.FormatBool(input.Required)})
 		}
 
-		md.Add(inputs.Sort(0))
+		md.Add(in.Sort(0))
 	}
 
 	if w.On.WorkflowCall.Outputs != nil {
@@ -120,4 +124,34 @@ func Parse(file string, log *logging.Log) *Workflow {
 	}
 	w.Filename = file
 	return w
+}
+
+func (w *Workflow) getInputs() *map[string]Input {
+	if w.On.WorkflowCall.Inputs == nil {
+		return nil
+	}
+
+	keys := make([]string, 0, len(*w.On.WorkflowCall.Inputs))
+	for k := range *w.On.WorkflowCall.Inputs {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	sorted := make(map[string]Input)
+	for _, k := range keys {
+		sorted[k] = (*w.On.WorkflowCall.Inputs)[k]
+	}
+	return &sorted
+}
+
+func listInputs(inputs *map[string]Input, spacing int) string {
+	if inputs == nil {
+		return ""
+	}
+
+	var result = ""
+	for name, _ := range *inputs {
+		result += fmt.Sprintf("%s%s: \n", strings.Repeat(" ", spacing), name)
+	}
+	return result
 }

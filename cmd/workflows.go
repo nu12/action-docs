@@ -36,15 +36,15 @@ var workflowsCmd = &cobra.Command{
 			toc.Add(link.String())
 		}
 
-		markdownHeader := &markdown.Markdown{
+		markdownHeader := (&markdown.Markdown{
 			Elements: []markdown.Element{
 				markdown.H1("Workflows"),
 				markdown.P("Table of contents:"),
 				toc,
 			},
-		}
+		}).String()
 
-		if err := os.WriteFile(workflowsOutput+"/README.md", []byte(markdownHeader.String()+markdownBody), 0644); err != nil {
+		if err := os.WriteFile(workflowsOutput+"/README.md", []byte(markdownHeader+markdownBody), 0644); err != nil {
 			log.Fatal(err)
 		}
 	},

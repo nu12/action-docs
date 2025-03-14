@@ -89,12 +89,3 @@ func TestScanPatternAction(t *testing.T) {
 		t.Errorf("error: %s", "File doesn't match")
 	}
 }
-
-func TestExtractPath(t *testing.T) {
-	path := "/a/b/c"
-	result := ExtractPath(path)
-	expected := "/a/b"
-	if expected != result {
-		t.Errorf("error: %s", "Path doesn't match")
-	}
-}

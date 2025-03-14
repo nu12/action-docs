@@ -1,8 +1,12 @@
 package action
 
 import (
+	"fmt"
 	"os"
+	"path/filepath"
+	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/nu12/action-docs/internal/markdown"
 	"github.com/nu12/go-logging"
@@ -14,6 +18,7 @@ type Action struct {
 	Description string             `yaml:"description"`
 	Inputs      *map[string]Input  `yaml:"inputs"`
 	Outputs     *map[string]Output `yaml:"outputs"`
+	Filename    string
 }
 
 type Input struct {
@@ -27,19 +32,20 @@ type Output struct {
 }
 
 func (a *Action) Markdown() string {
+	inputs := a.getInputs()
 	md := &markdown.Markdown{}
 	md.Add(markdown.H1(a.Name)).
 		Add(markdown.P(a.Description)).
 		Add(markdown.H2("Usage example")).
-		Add(markdown.Code(`jobs:
+		Add(markdown.Code(fmt.Sprintf(`jobs:
   job-name:
     runs-on: <runner>
     steps:
-    - uses: path/to/action/folder@main
+    - uses: %s@main
       with:
-        <list of inputs>`))
+%s`, filepath.Dir(a.Filename), listInputs(inputs, 8))))
 
-	if a.Inputs != nil {
+	if inputs != nil {
 		md.Add(markdown.H2("Inputs"))
 
 		inputs := markdown.Table{
@@ -80,5 +86,36 @@ func Parse(file string, log *logging.Log) *Action {
 	if err != nil {
 		log.Warning(err.Error())
 	}
+	a.Filename = file
 	return a
+}
+
+func (a *Action) getInputs() *map[string]Input {
+	if a.Inputs == nil {
+		return nil
+	}
+
+	keys := make([]string, 0, len(*a.Inputs))
+	for k := range *a.Inputs {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	sorted := make(map[string]Input)
+	for _, k := range keys {
+		sorted[k] = (*a.Inputs)[k]
+	}
+	return &sorted
+}
+
+func listInputs(inputs *map[string]Input, spacing int) string {
+	if inputs == nil {
+		return ""
+	}
+
+	var result = ""
+	for name, item := range *inputs {
+		result += fmt.Sprintf("%s%s: %s\n", strings.Repeat(" ", spacing), name, item.Default)
+	}
+	return result
 }
