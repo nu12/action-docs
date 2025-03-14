@@ -8,7 +8,6 @@ import (
 	"github.com/nu12/action-docs/internal/markdown"
 	"github.com/nu12/action-docs/internal/workflow"
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v3"
 )
 
 var workflowsCmd = &cobra.Command{
@@ -17,7 +16,7 @@ var workflowsCmd = &cobra.Command{
 	Long:  `Generate documentation for github workflows`,
 	Run: func(cmd *cobra.Command, args []string) {
 		log.Info("Scanning workflows")
-		var list = &markdown.List{
+		var toc = &markdown.List{
 			Items: []string{},
 		}
 		var markdownBody = ""
@@ -25,37 +24,27 @@ var workflowsCmd = &cobra.Command{
 		if err != nil {
 			log.Fatal(err)
 		}
-		for _, file := range files {
-			b, err := os.ReadFile(file)
-			if err != nil {
-				log.Fatal(err)
-			}
 
-			w := workflow.Workflow{}
-			err = yaml.Unmarshal([]byte(b), &w)
-			if err != nil {
-				log.Fatal(err)
-			}
-			w.Filename = file
+		for _, file := range files {
+			w := workflow.Parse(file, log)
 			markdownBody += w.Markdown()
+
 			link := markdown.Hyperlink{
 				Text: file,
 				URL:  "#" + strings.Replace(w.Name, " ", "-", -1),
 			}
-			list.Add(link.String())
+			toc.Add(link.String())
 		}
+
 		markdownHeader := &markdown.Markdown{
 			Elements: []markdown.Element{
 				markdown.H1("Workflows"),
 				markdown.P("Table of contents:"),
-				list,
+				toc,
 			},
 		}
 
-		markdownOutput := markdownHeader.String() + markdownBody
-
-		err = os.WriteFile(workflowsOutput+"/README.md", []byte(markdownOutput), 0644)
-		if err != nil {
+		if err := os.WriteFile(workflowsOutput+"/README.md", []byte(markdownHeader.String()+markdownBody), 0644); err != nil {
 			log.Fatal(err)
 		}
 	},

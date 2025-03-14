@@ -1,9 +1,12 @@
 package action
 
 import (
+	"os"
 	"strconv"
 
 	"github.com/nu12/action-docs/internal/markdown"
+	"github.com/nu12/go-logging"
+	"gopkg.in/yaml.v3"
 )
 
 type Action struct {
@@ -63,4 +66,19 @@ func (a *Action) Markdown() string {
 	}
 
 	return md.String()
+}
+
+func Parse(file string, log *logging.Log) *Action {
+	a := &Action{}
+	b, err := os.ReadFile(file)
+	if err != nil {
+		log.Warning(err.Error())
+		return a
+	}
+
+	err = yaml.Unmarshal([]byte(b), a)
+	if err != nil {
+		log.Warning(err.Error())
+	}
+	return a
 }
