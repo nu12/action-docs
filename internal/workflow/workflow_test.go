@@ -53,10 +53,6 @@ func TestReusableWorkflow(t *testing.T) {
 	}
 
 	inputs := w.getInputs()
-	if inputs == nil {
-		t.Errorf("error: %s", "Inputs should not be nil")
-	}
-
 	if len(*inputs) != 2 {
 		t.Errorf("error: %s", "Should have 2 inputs")
 	}

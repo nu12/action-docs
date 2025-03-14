@@ -54,10 +54,6 @@ func TestAction(t *testing.T) {
 	}
 
 	inputs := a.getInputs()
-	if inputs == nil {
-		t.Errorf("error: %s", "Inputs should not be nil")
-	}
-
 	if (*inputs)["in1"].Description != "Input1" {
 		t.Errorf("error: %s", "Input 1 description doesn't match")
 	}

@@ -92,7 +92,7 @@ func Parse(file string, log *logging.Log) *Action {
 
 func (a *Action) getInputs() *map[string]Input {
 	if a.Inputs == nil {
-		return nil
+		return &map[string]Input{}
 	}
 
 	keys := make([]string, 0, len(*a.Inputs))

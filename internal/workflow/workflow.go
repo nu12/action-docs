@@ -128,7 +128,7 @@ func Parse(file string, log *logging.Log) *Workflow {
 
 func (w *Workflow) getInputs() *map[string]Input {
 	if w.On.WorkflowCall.Inputs == nil {
-		return nil
+		return &map[string]Input{}
 	}
 
 	keys := make([]string, 0, len(*w.On.WorkflowCall.Inputs))
@@ -150,7 +150,7 @@ func listInputs(inputs *map[string]Input, spacing int) string {
 	}
 
 	var result = ""
-	for name, _ := range *inputs {
+	for name := range *inputs {
 		result += fmt.Sprintf("%s%s: \n", strings.Repeat(" ", spacing), name)
 	}
 	return result
