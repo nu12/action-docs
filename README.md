@@ -14,7 +14,7 @@ go install github.com/nu12/action-docs@latest
 
 Note: go's binary folder (tipically `~/go/bin`) should be added to your PATH.
 
-### From release (x86_64 only)
+### From release
 
 Download a tagged release binary for your OS (ubuntu, macos, windows) placing it in a folder in your PATH and make it executable (may require elevated permissions).
 
