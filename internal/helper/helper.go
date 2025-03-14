@@ -33,8 +33,3 @@ func ScanPattern(path, pattern string, recursive bool) ([]string, error) {
 	}
 	return files, nil
 }
-
-func ExtractPath(path string) string {
-	s := strings.Split(path, "/")
-	return strings.Join(s[:len(s)-1], "/")
-}

@@ -52,7 +52,8 @@ func TestReusableWorkflow(t *testing.T) {
 		t.Errorf("error: %s", "Name doesn't match")
 	}
 
-	if len(*w.On.WorkflowCall.Inputs) != 2 {
+	inputs := w.getInputs()
+	if len(*inputs) != 2 {
 		t.Errorf("error: %s", "Should have 2 inputs")
 	}
 
@@ -60,19 +61,19 @@ func TestReusableWorkflow(t *testing.T) {
 		t.Errorf("error: %s", "Should have 1 output")
 	}
 
-	if (*w.On.WorkflowCall.Inputs)["in1"].Description != "Input1" {
+	if (*inputs)["in1"].Description != "Input1" {
 		t.Errorf("error: %s", "Description for input1 doesn't match")
 	}
 
-	if !(*w.On.WorkflowCall.Inputs)["in1"].Required {
+	if !(*inputs)["in1"].Required {
 		t.Errorf("error: %s", "Required for input1 doesn't match")
 	}
 
-	if (*w.On.WorkflowCall.Inputs)["in2"].Description != "Input2" {
+	if (*inputs)["in2"].Description != "Input2" {
 		t.Errorf("error: %s", "Description for input2 doesn't match")
 	}
 
-	if (*w.On.WorkflowCall.Inputs)["in2"].Required {
+	if (*inputs)["in2"].Required {
 		t.Errorf("error: %s", "Required for input2 doesn't match")
 	}
 
@@ -102,9 +103,22 @@ func TestMarkdown(t *testing.T) {
 		t.Errorf("error: %v", err)
 	}
 
-	expected := "e95dbdab7dc32a8d658597a82fa04529"
+	expected := "07c0de5551eea7025970cc8f3e78b564"
 
 	if expected != helper.Hash(result) {
 		t.Errorf("error: %s. Output is:\n%s\nCurrent Hash is: %s, expected hash is: %s", "Markdown doesn't match", result, helper.Hash(result), expected)
+	}
+}
+
+func TestListInputs(t *testing.T) {
+	inputs := &map[string]Input{
+		"in1": {Description: "Input1", Required: true},
+		"in2": {Description: "Input2", Required: false},
+	}
+	result := listInputs(inputs, 2)
+	expected := "  in1: \n  in2: \n"
+
+	if result != expected {
+		t.Errorf("error: %s. Output is:\n%s\nExpected output is:\n%s", "listInputs doesn't match", result, expected)
 	}
 }

@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"os"
+	"path/filepath"
 
 	"github.com/nu12/action-docs/internal/action"
 	"github.com/nu12/action-docs/internal/helper"
@@ -23,8 +24,7 @@ var actionsCmd = &cobra.Command{
 		for _, file := range files {
 			a := action.Parse(file, log)
 
-			path := helper.ExtractPath(file)
-			if err := os.WriteFile(path+"/README.md", []byte(a.Markdown()), 0644); err != nil {
+			if err := os.WriteFile(filepath.Dir(file)+"/README.md", []byte(a.Markdown()), 0644); err != nil {
 				log.Fatal(err)
 			}
 		}
