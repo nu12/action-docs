@@ -112,8 +112,8 @@ func TestMarkdown(t *testing.T) {
 
 func TestListInputs(t *testing.T) {
 	inputs := &map[string]Input{
-		"in1": {Description: "Input1", Required: true},
 		"in2": {Description: "Input2", Required: false},
+		"in1": {Description: "Input1", Required: true},
 	}
 	result := listInputs(inputs, 2)
 	expected := "  in1: \n  in2: \n"

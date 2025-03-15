@@ -149,9 +149,10 @@ func listInputs(inputs *map[string]Input, spacing int) string {
 		return ""
 	}
 
-	var result = ""
+	var result = []string{}
 	for name := range *inputs {
-		result += fmt.Sprintf("%s%s: \n", strings.Repeat(" ", spacing), name)
+		result = append(result, fmt.Sprintf("%s%s: \n", strings.Repeat(" ", spacing), name))
 	}
-	return result
+	sort.Strings(result)
+	return strings.Join(result, "")
 }
