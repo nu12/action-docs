@@ -10,7 +10,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-var data = `
+var call = `
 name: 'Workflow name'
 description: 'Workflow description'
 on: 
@@ -31,12 +31,27 @@ on:
         required: true
 `
 
+var dispatch = `
+name: 'Workflow name'
+description: 'Workflow description'
+on: 
+  workflow_dispatch:
+    inputs: 
+      in1: 
+        description: 'Input1'
+        type: choice
+        default: 'one'
+        options:
+        - one
+        - two
+`
+
 func TestReusableWorkflow(t *testing.T) {
 	log := logging.NewLogger()
 	dir := t.TempDir()
 	valid := "valid.yml"
 
-	err := os.WriteFile(dir+"/"+valid, []byte(data), 0644)
+	err := os.WriteFile(dir+"/"+valid, []byte(call), 0644)
 	if err != nil {
 		t.Fatalf("error: %v", err)
 	}
@@ -88,10 +103,10 @@ func TestReusableWorkflow(t *testing.T) {
 	// fmt.Printf("--- t dump:\n%s\n\n", string(d))
 }
 
-func TestMarkdown(t *testing.T) {
+func TestMarkdownCall(t *testing.T) {
 	w := Workflow{}
 
-	err := yaml.Unmarshal([]byte(data), &w)
+	err := yaml.Unmarshal([]byte(call), &w)
 	if err != nil {
 		t.Errorf("error: %v", err)
 	}
@@ -99,11 +114,26 @@ func TestMarkdown(t *testing.T) {
 	w.Filename = ".github/workflows/workflow.yml"
 
 	result := w.Markdown()
+	expected := "07c0de5551eea7025970cc8f3e78b564"
+
+	if expected != helper.Hash(result) {
+		t.Errorf("error: %s. Output is:\n%s\nCurrent Hash is: %s, expected hash is: %s", "Markdown doesn't match", result, helper.Hash(result), expected)
+	}
+}
+
+func TestMarkdownDispatch(t *testing.T) {
+
+	w := Workflow{}
+
+	err := yaml.Unmarshal([]byte(dispatch), &w)
 	if err != nil {
 		t.Errorf("error: %v", err)
 	}
 
-	expected := "07c0de5551eea7025970cc8f3e78b564"
+	w.Filename = ".github/workflows/workflow.yml"
+
+	result := w.Markdown()
+	expected := "fb9150a4dca978c8672289ad53192481"
 
 	if expected != helper.Hash(result) {
 		t.Errorf("error: %s. Output is:\n%s\nCurrent Hash is: %s, expected hash is: %s", "Markdown doesn't match", result, helper.Hash(result), expected)

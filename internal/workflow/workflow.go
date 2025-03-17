@@ -21,6 +21,9 @@ type Workflow struct {
 			Outputs *map[string]Output `yaml:"outputs"`
 			Secrets *map[string]Secret `yaml:"secrets"`
 		} `yaml:"workflow_call"`
+		WorkflowDispatch *struct {
+			Inputs *map[string]Input `yaml:"inputs"`
+		} `yaml:"workflow_dispatch"`
 	}
 
 	Filename string
@@ -30,6 +33,7 @@ type Input struct {
 	Description string `yaml:"description"`
 	Required    bool   `yaml:"required"`
 	Type        string `yaml:"type"`
+	Default     string `yaml:"default"`
 }
 type Output struct {
 	Description string `yaml:"description"`
@@ -64,21 +68,32 @@ jobs:
 %s`, w.Filename, listInputs(inputs, 6))))
 	}
 
-	if w.On.WorkflowCall == nil {
-		return md.String()
-	}
-
 	if inputs != nil {
 		md.Add(markdown.H3("Inputs"))
 
-		in := markdown.Table{
-			Header: markdown.Header{"Name", "Type", "Description", "Required"},
-		}
-		for name, input := range *inputs {
-			in.AddRow(markdown.Row{name, input.Type, input.Description, strconv.FormatBool(input.Required)})
-		}
+		if w.IsReusableWorkflow() {
+			in := markdown.Table{
+				Header: markdown.Header{"Name", "Type", "Description", "Required"},
+			}
+			for name, input := range *inputs {
+				in.AddRow(markdown.Row{name, input.Type, input.Description, strconv.FormatBool(input.Required)})
+			}
 
-		md.Add(in.Sort(0))
+			md.Add(in.Sort(0))
+		} else {
+			in := markdown.Table{
+				Header: markdown.Header{"Name", "Type", "Description", "Default"},
+			}
+			for name, input := range *inputs {
+				in.AddRow(markdown.Row{name, input.Type, input.Description, input.Default})
+			}
+
+			md.Add(in.Sort(0))
+		}
+	}
+
+	if w.On.WorkflowCall == nil {
+		return md.String()
 	}
 
 	if w.On.WorkflowCall.Outputs != nil {
@@ -127,19 +142,28 @@ func Parse(file string, log *logging.Log) *Workflow {
 }
 
 func (w *Workflow) getInputs() *map[string]Input {
-	if w.On.WorkflowCall.Inputs == nil {
-		return &map[string]Input{}
-	}
-
-	keys := make([]string, 0, len(*w.On.WorkflowCall.Inputs))
-	for k := range *w.On.WorkflowCall.Inputs {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-
 	sorted := make(map[string]Input)
-	for _, k := range keys {
-		sorted[k] = (*w.On.WorkflowCall.Inputs)[k]
+	var keys = []string{}
+	if w.On.WorkflowCall != nil {
+		if w.On.WorkflowCall.Inputs != nil {
+			for k := range *w.On.WorkflowCall.Inputs {
+				keys = append(keys, k)
+			}
+			sort.Strings(keys)
+			for _, k := range keys {
+				sorted[k] = (*w.On.WorkflowCall.Inputs)[k]
+			}
+		}
+	} else if w.On.WorkflowDispatch != nil {
+		if w.On.WorkflowDispatch.Inputs != nil {
+			for k := range *w.On.WorkflowDispatch.Inputs {
+				keys = append(keys, k)
+			}
+			sort.Strings(keys)
+			for _, k := range keys {
+				sorted[k] = (*w.On.WorkflowDispatch.Inputs)[k]
+			}
+		}
 	}
 	return &sorted
 }
