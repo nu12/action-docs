@@ -5,6 +5,8 @@ import (
 	"testing"
 )
 
+const errorf = "Error: %v. \nExpected: %v \nGot: %v"
+
 func TestHash(t *testing.T) {
 	var data = "data"
 	result := Hash(data)
@@ -87,5 +89,37 @@ func TestScanPatternAction(t *testing.T) {
 
 	if files[2] != dir+"/c/d/action.yml" {
 		t.Errorf("error: %s", "File doesn't match")
+	}
+}
+
+func TestSanitizeURL(t *testing.T) {
+	tests := []struct {
+		name     string
+		given    string
+		expected string
+	}{
+		{
+			name:     "Remove spaces",
+			given:    "my workflow",
+			expected: "my-workflow",
+		},
+		{
+			name:     "Remove parenthesis",
+			given:    "my (workflow)",
+			expected: "my-workflow",
+		},
+		{
+			name:     "To lowercase",
+			given:    "My Workflow",
+			expected: "my-workflow",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := SanitizeURL(tt.given); got != tt.expected {
+				t.Errorf(errorf, "mismatch", tt.expected, got)
+			}
+		})
 	}
 }

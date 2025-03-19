@@ -33,3 +33,11 @@ func ScanPattern(path, pattern string, recursive bool) ([]string, error) {
 	}
 	return files, nil
 }
+
+func SanitizeURL(url string) string {
+	out := strings.Replace(url, " ", "-", -1)
+	out = strings.Replace(out, "(", "", -1)
+	out = strings.Replace(out, ")", "", -1)
+	out = strings.ToLower(out)
+	return out
+}

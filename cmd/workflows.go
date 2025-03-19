@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"os"
-	"strings"
 
 	"github.com/nu12/action-docs/internal/helper"
 	"github.com/nu12/action-docs/internal/markdown"
@@ -31,7 +30,7 @@ var workflowsCmd = &cobra.Command{
 
 			link := markdown.Hyperlink{
 				Text: file,
-				URL:  "#" + strings.Replace(w.Name, " ", "-", -1),
+				URL:  "#" + helper.SanitizeURL(w.Name),
 			}
 			toc.Add(link.String())
 		}
