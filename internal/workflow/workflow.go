@@ -68,7 +68,7 @@ jobs:
 %s`, w.Filename, listInputs(inputs, 6))))
 	}
 
-	if inputs != nil {
+	if len(*inputs) > 0 {
 		md.Add(markdown.H3("Inputs"))
 
 		if w.IsReusableWorkflow() {
