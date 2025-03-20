@@ -15,10 +15,11 @@ var workflowsCmd = &cobra.Command{
 	Long:  `Generate documentation for github workflows`,
 	Run: func(cmd *cobra.Command, args []string) {
 		log.Info("Scanning workflows")
-		var toc = &markdown.List{
-			Items: []string{},
+		var ws = workflow.Workflows{
+			Workflows: []workflow.Workflow{},
+			Content:   markdown.List{},
 		}
-		var markdownBody = ""
+
 		files, err := helper.ScanPattern(".github/workflows", ".yml", false)
 		if err != nil {
 			log.Fatal(err)
@@ -26,24 +27,10 @@ var workflowsCmd = &cobra.Command{
 
 		for _, file := range files {
 			w := workflow.Parse(file, log)
-			markdownBody += w.Markdown()
-
-			link := markdown.Hyperlink{
-				Text: file,
-				URL:  "#" + helper.SanitizeURL(w.Name),
-			}
-			toc.Add(link.String())
+			ws.AddWorkflow(w)
 		}
 
-		markdownHeader := (&markdown.Markdown{
-			Elements: []markdown.Element{
-				markdown.H1("Workflows"),
-				markdown.P("Table of contents:"),
-				toc,
-			},
-		}).String()
-
-		if err := os.WriteFile(workflowsOutput+"/README.md", []byte(markdownHeader+markdownBody), 0644); err != nil {
+		if err := os.WriteFile(workflowsOutput+"/README.md", []byte(ws.String()), 0644); err != nil {
 			log.Fatal(err)
 		}
 	},
