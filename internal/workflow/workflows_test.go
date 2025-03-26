@@ -8,22 +8,37 @@ import (
 )
 
 func TestWorkflows(t *testing.T) {
-	const errorf = "Error: %v. \nExpected: %v \nGot: %v\nFrom: %v"
 	tests := []struct {
 		name     string
 		given    []Workflow
 		expected string
 	}{
 		{
-			name: "Placeholder",
+			name: "One workflow",
 			given: []Workflow{
 				{
-					Name:        "A",
-					Description: "Test workflows",
+					Name:        "Workflow A",
+					Description: "Test workflows A",
 					Filename:    ".github/workflows/a.yml",
 				},
 			},
-			expected: "0ffb9812157409a3206fb7c8ffd85f92",
+			expected: "7e74e2d88376bf641107fe22ea09ce68",
+		},
+		{
+			name: "Two workflows",
+			given: []Workflow{
+				{
+					Name:        "Workflow A",
+					Description: "Test workflows A",
+					Filename:    ".github/workflows/a.yml",
+				},
+				{
+					Name:        "Workflow B",
+					Description: "Test workflows B",
+					Filename:    ".github/workflows/b.yml",
+				},
+			},
+			expected: "e6b8867c16847397e0eab0d694a39526",
 		},
 	}
 
@@ -36,10 +51,17 @@ func TestWorkflows(t *testing.T) {
 			for _, w := range tt.given {
 				ws.AddWorkflow(&w)
 			}
-			md := ws.String()
-			got := helper.Hash(md)
-			if tt.expected != got {
-				t.Errorf(errorf, "mismatch", tt.expected, got, md)
+			if len(ws.Content.Items) != len(tt.given) {
+				t.Errorf(errorf, "contents size mismatch", len(tt.given), len(ws.Content.Items))
+			}
+
+			if len(ws.Workflows) != len(tt.given) {
+				t.Errorf(errorf, "workflows size mismatch", len(tt.given), len(ws.Workflows))
+			}
+
+			if tt.expected != helper.Hash(ws.String()) {
+				t.Errorf(errorf, "mismatch", tt.expected, helper.Hash(ws.String()))
+				t.Errorf(ws.String())
 			}
 		})
 	}

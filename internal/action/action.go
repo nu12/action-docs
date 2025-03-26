@@ -42,23 +42,22 @@ func (a *Action) Markdown() string {
     runs-on: <runner>
     steps:
     - uses: %s@main
-      with:
 %s`, filepath.Dir(a.Filename), listInputs(inputs, 8))))
 
-	if inputs != nil {
+	if len(*inputs) > 0 {
 		md.Add(markdown.H2("Inputs"))
 
-		inputs := markdown.Table{
+		tInputs := markdown.Table{
 			Header: markdown.Header{"Name", "Description", "Required", "Default value"},
 		}
-		for name, input := range *a.Inputs {
-			inputs.AddRow(markdown.Row{name, input.Description, strconv.FormatBool(input.Required), input.Default})
+		for name, input := range *inputs {
+			tInputs.AddRow(markdown.Row{name, input.Description, strconv.FormatBool(input.Required), input.Default})
 		}
 
-		md.Add(inputs.Sort(0))
+		md.Add(tInputs.Sort(0))
 	}
 
-	if a.Outputs != nil {
+	if a.Outputs != nil && len(*a.Outputs) > 0 {
 		md.Add(markdown.H2("Outputs"))
 
 		outputs := markdown.Table{
@@ -87,6 +86,14 @@ func Parse(file string, log *logging.Log) *Action {
 		log.Warning(err.Error())
 	}
 	a.Filename = file
+
+	if a.Inputs == nil {
+		a.Inputs = &map[string]Input{}
+	}
+	if a.Outputs == nil {
+		a.Outputs = &map[string]Output{}
+	}
+
 	return a
 }
 
@@ -112,11 +119,14 @@ func listInputs(inputs *map[string]Input, spacing int) string {
 	if inputs == nil {
 		return ""
 	}
+	if len(*inputs) == 0 {
+		return ""
+	}
 
 	var result = []string{}
 	for name, item := range *inputs {
 		result = append(result, fmt.Sprintf("%s%s: %s\n", strings.Repeat(" ", spacing), name, item.Default))
 	}
 	sort.Strings(result)
-	return strings.Join(result, "")
+	return fmt.Sprintf("%swith:\n%s", strings.Repeat(" ", spacing-2), strings.Join(result, ""))
 }

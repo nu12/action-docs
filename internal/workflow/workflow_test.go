@@ -2,6 +2,7 @@ package workflow
 
 import (
 	"os"
+	"sort"
 	"testing"
 
 	"github.com/nu12/action-docs/internal/helper"
@@ -10,7 +11,156 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-var call = `
+const errorf = "Error: %v. \nExpected: %v \nGot: %v"
+
+func TestParse(t *testing.T) {
+	tests := []struct {
+		name                       string
+		data                       string
+		expectedFilename           string
+		expectedIsReusableWorkflow bool
+		expectedName               string
+		expectedDescription        string
+	}{
+		{
+			name: "Workflow call",
+			data: `
+name: 'Workflow name 1'
+description: 'Workflow description 1'
+on: 
+  workflow_call:
+    inputs: 
+      in1: 
+        description: 'Input1'
+        required: true
+      in2: 
+        description: 'Input2'
+        required: false
+    outputs:
+      out1:
+        description: 'Output1'
+        value: 'Hello'
+    secrets:
+      sec1:
+        required: true
+`,
+			expectedFilename:           "call.yml",
+			expectedIsReusableWorkflow: true,
+			expectedName:               "Workflow name 1",
+			expectedDescription:        "Workflow description 1",
+		},
+		{
+			name: "Workflow dispatch",
+			data: `
+name: 'Workflow name 2'
+description: 'Workflow description 2'
+on: 
+  workflow_dispatch:
+    inputs: 
+      in1: 
+        description: 'Input1'
+        type: choice
+        default: 'one'
+        options:
+        - one
+        - two
+`,
+			expectedFilename:           "dispatch.yml",
+			expectedIsReusableWorkflow: false,
+			expectedName:               "Workflow name 2",
+			expectedDescription:        "Workflow description 2",
+		},
+		{
+			name: "Workflow call with nil",
+			data: `
+name: 'Workflow name 3'
+description: 'Workflow description 3'
+on: 
+  workflow_call: {}
+`,
+			expectedFilename:           "call.yml",
+			expectedIsReusableWorkflow: true,
+			expectedName:               "Workflow name 3",
+			expectedDescription:        "Workflow description 3",
+		},
+		{
+			name: "Workflow dispatch with nil",
+			data: `
+name: 'Workflow name 4'
+description: 'Workflow description 4'
+on: 
+  workflow_dispatch: {}
+`,
+			expectedFilename:           "dispatch.yml",
+			expectedIsReusableWorkflow: false,
+			expectedName:               "Workflow name 4",
+			expectedDescription:        "Workflow description 4",
+		},
+	}
+
+	log := logging.NewLogger()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			absoluteFilename := dir + "/" + tt.expectedFilename
+			err := os.WriteFile(absoluteFilename, []byte(tt.data), 0644)
+			if err != nil {
+				t.Fatalf("error: %v", err)
+			}
+			defer os.Remove(absoluteFilename)
+
+			w := Parse(absoluteFilename, log)
+
+			if w.IsReusableWorkflow() != tt.expectedIsReusableWorkflow {
+				t.Errorf(errorf, "IsReusableWorkflow doesn't match", tt.expectedIsReusableWorkflow, w.IsReusableWorkflow())
+			}
+
+			if w.Name != tt.expectedName {
+				t.Errorf(errorf, "Name doesn't match", tt.expectedName, w.Name)
+			}
+
+			if w.Description != tt.expectedDescription {
+				t.Errorf(errorf, "Description doesn't match", tt.expectedDescription, w.Description)
+			}
+
+			if w.IsReusableWorkflow() {
+				if w.On.WorkflowCall == nil {
+					t.Errorf("WorkflowCall is nil")
+				}
+				if w.On.WorkflowCall.Inputs == nil {
+					t.Errorf("Inputs is nil")
+				}
+				if w.On.WorkflowCall.Outputs == nil {
+					t.Errorf("Outputs is nil")
+				}
+				if w.On.WorkflowCall.Secrets == nil {
+					t.Errorf("Secrets is nil")
+				}
+
+			} else {
+				if w.On.WorkflowDispatch == nil {
+					t.Errorf("WorkflowDispatch is nil")
+				}
+
+				if w.On.WorkflowDispatch.Inputs == nil {
+					t.Errorf("Inputs is nil")
+				}
+			}
+		})
+	}
+
+}
+
+func TestMarkdown(t *testing.T) {
+	tests := []struct {
+		name     string
+		data     string
+		filename string
+		expected string
+	}{
+		{
+			name: "Workflow call",
+			data: `
 name: 'Workflow name'
 description: 'Workflow description'
 on: 
@@ -29,9 +179,13 @@ on:
     secrets:
       sec1:
         required: true
-`
-
-var dispatch = `
+`,
+			filename: ".github/workflows/call.yml",
+			expected: "360289fb1c3e8e14b64cf0d592ebf21a",
+		},
+		{
+			name: "Workflow dispatch",
+			data: `
 name: 'Workflow name'
 description: 'Workflow description'
 on: 
@@ -44,111 +198,292 @@ on:
         options:
         - one
         - two
-`
-
-func TestReusableWorkflow(t *testing.T) {
-	log := logging.NewLogger()
-	dir := t.TempDir()
-	valid := "valid.yml"
-
-	err := os.WriteFile(dir+"/"+valid, []byte(call), 0644)
-	if err != nil {
-		t.Fatalf("error: %v", err)
-	}
-	defer os.Remove(dir + "/" + valid)
-
-	w := Parse(dir+"/"+valid, log)
-
-	if !w.IsReusableWorkflow() {
-		t.Errorf("error: %s", "Should have workflow_call trigger")
+`,
+			filename: ".github/workflows/dispatch.yml",
+			expected: "ec84abaf87f6ec0ab0f0c3208e493229",
+		},
 	}
 
-	if w.Name != "Workflow name" {
-		t.Errorf("error: %s", "Name doesn't match")
-	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			w := Workflow{}
+			err := yaml.Unmarshal([]byte(tt.data), &w)
+			if err != nil {
+				t.Errorf("error: %v", err)
+			}
+			w.Filename = tt.filename
 
-	inputs := w.getInputs()
-	if len(*inputs) != 2 {
-		t.Errorf("error: %s", "Should have 2 inputs")
-	}
-
-	if len(*w.On.WorkflowCall.Outputs) != 1 {
-		t.Errorf("error: %s", "Should have 1 output")
-	}
-
-	if (*inputs)["in1"].Description != "Input1" {
-		t.Errorf("error: %s", "Description for input1 doesn't match")
-	}
-
-	if !(*inputs)["in1"].Required {
-		t.Errorf("error: %s", "Required for input1 doesn't match")
-	}
-
-	if (*inputs)["in2"].Description != "Input2" {
-		t.Errorf("error: %s", "Description for input2 doesn't match")
-	}
-
-	if (*inputs)["in2"].Required {
-		t.Errorf("error: %s", "Required for input2 doesn't match")
-	}
-
-	if !(*w.On.WorkflowCall.Secrets)["sec1"].Required {
-		t.Errorf("error: %s", "Required for secret1 doesn't match")
-	}
-
-	// d, err := yaml.Marshal(&w)
-	// if err != nil {
-	// 	t.Errorf("error 2: %v", err)
-	// }
-	// fmt.Printf("--- t dump:\n%s\n\n", string(d))
-}
-
-func TestMarkdownCall(t *testing.T) {
-	w := Workflow{}
-
-	err := yaml.Unmarshal([]byte(call), &w)
-	if err != nil {
-		t.Errorf("error: %v", err)
-	}
-
-	w.Filename = ".github/workflows/workflow.yml"
-
-	result := w.Markdown()
-	expected := "07c0de5551eea7025970cc8f3e78b564"
-
-	if expected != helper.Hash(result) {
-		t.Errorf("error: %s. Output is:\n%s\nCurrent Hash is: %s, expected hash is: %s", "Markdown doesn't match", result, helper.Hash(result), expected)
-	}
-}
-
-func TestMarkdownDispatch(t *testing.T) {
-
-	w := Workflow{}
-
-	err := yaml.Unmarshal([]byte(dispatch), &w)
-	if err != nil {
-		t.Errorf("error: %v", err)
-	}
-
-	w.Filename = ".github/workflows/workflow.yml"
-
-	result := w.Markdown()
-	expected := "fb9150a4dca978c8672289ad53192481"
-
-	if expected != helper.Hash(result) {
-		t.Errorf("error: %s. Output is:\n%s\nCurrent Hash is: %s, expected hash is: %s", "Markdown doesn't match", result, helper.Hash(result), expected)
+			if tt.expected != helper.Hash(w.Markdown()) {
+				t.Errorf(errorf, "Markdown doesn't match", tt.expected, helper.Hash(w.Markdown()))
+				t.Errorf(w.Markdown())
+			}
+		})
 	}
 }
 
 func TestListInputs(t *testing.T) {
-	inputs := &map[string]Input{
-		"in2": {Description: "Input2", Required: false},
-		"in1": {Description: "Input1", Required: true},
+	tests := []struct {
+		name     string
+		given    map[string]Input
+		expected string
+	}{
+		{
+			name: "Two inputs",
+			given: map[string]Input{
+				"in2": {Description: "Input2", Required: false},
+				"in1": {Description: "Input1", Required: true},
+			},
+			expected: "with:\n  in1: \n  in2: \n",
+		},
+		{
+			name: "Input without default value",
+			given: map[string]Input{
+				"in2": {Description: "Input2", Required: false},
+				"in1": {Description: "Input1", Required: true},
+			},
+			expected: "with:\n  in1: \n  in2: \n",
+		},
+		{
+			name:     "No inputs",
+			given:    map[string]Input{},
+			expected: "",
+		},
+		{
+			name:     "Nil inputs",
+			given:    nil,
+			expected: "",
+		},
 	}
-	result := listInputs(inputs, 2)
-	expected := "  in1: \n  in2: \n"
 
-	if result != expected {
-		t.Errorf("error: %s. Output is:\n%s\nExpected output is:\n%s", "listInputs doesn't match", result, expected)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := listInputs(&tt.given, 2)
+			if got != tt.expected {
+				t.Errorf(errorf, "List inputs doesn't match", tt.expected, got)
+			}
+
+		})
+	}
+}
+
+func TestGetInputs(t *testing.T) {
+	tests := []struct {
+		name           string
+		given          Workflow
+		expectedInputs *map[string]Input
+	}{
+		{
+			name: "Workflow dispatch with inputs",
+			given: Workflow{
+				Name:        "A",
+				Description: "Test workflows",
+				Filename:    ".github/workflows/a.yml",
+				On: struct {
+					WorkflowCall *struct {
+						Inputs  *map[string]Input  "yaml:\"inputs\""
+						Outputs *map[string]Output "yaml:\"outputs\""
+						Secrets *map[string]Secret "yaml:\"secrets\""
+					} "yaml:\"workflow_call\""
+					WorkflowDispatch *struct {
+						Inputs *map[string]Input "yaml:\"inputs\""
+					} "yaml:\"workflow_dispatch\""
+				}{
+					WorkflowDispatch: &struct {
+						Inputs *map[string]Input "yaml:\"inputs\""
+					}{
+						Inputs: &map[string]Input{
+							"in2": {Description: "Input2", Required: false},
+							"in1": {Description: "Input1", Required: true},
+						},
+					},
+				},
+			},
+			expectedInputs: &map[string]Input{
+				"in1": {Description: "Input1", Required: true},
+				"in2": {Description: "Input2", Required: false},
+			},
+		},
+		{
+			name: "Workflow dispatch without inputs",
+			given: Workflow{
+				Name:        "A",
+				Description: "Test workflows",
+				Filename:    ".github/workflows/a.yml",
+				On: struct {
+					WorkflowCall *struct {
+						Inputs  *map[string]Input  "yaml:\"inputs\""
+						Outputs *map[string]Output "yaml:\"outputs\""
+						Secrets *map[string]Secret "yaml:\"secrets\""
+					} "yaml:\"workflow_call\""
+					WorkflowDispatch *struct {
+						Inputs *map[string]Input "yaml:\"inputs\""
+					} "yaml:\"workflow_dispatch\""
+				}{
+					WorkflowDispatch: &struct {
+						Inputs *map[string]Input "yaml:\"inputs\""
+					}{
+						Inputs: &map[string]Input{},
+					},
+				},
+			},
+			expectedInputs: &map[string]Input{},
+		},
+		{
+			name: "Workflow dispatch with nil inputs",
+			given: Workflow{
+				Name:        "A",
+				Description: "Test workflows",
+				Filename:    ".github/workflows/a.yml",
+				On: struct {
+					WorkflowCall *struct {
+						Inputs  *map[string]Input  "yaml:\"inputs\""
+						Outputs *map[string]Output "yaml:\"outputs\""
+						Secrets *map[string]Secret "yaml:\"secrets\""
+					} "yaml:\"workflow_call\""
+					WorkflowDispatch *struct {
+						Inputs *map[string]Input "yaml:\"inputs\""
+					} "yaml:\"workflow_dispatch\""
+				}{
+					WorkflowDispatch: &struct {
+						Inputs *map[string]Input "yaml:\"inputs\""
+					}{
+						Inputs: nil,
+					},
+				},
+			},
+			expectedInputs: &map[string]Input{},
+		},
+		{
+			name: "Workflow call with inputs",
+			given: Workflow{
+				Name:        "A",
+				Description: "Test workflows",
+				Filename:    ".github/workflows/a.yml",
+				On: struct {
+					WorkflowCall *struct {
+						Inputs  *map[string]Input  "yaml:\"inputs\""
+						Outputs *map[string]Output "yaml:\"outputs\""
+						Secrets *map[string]Secret "yaml:\"secrets\""
+					} "yaml:\"workflow_call\""
+					WorkflowDispatch *struct {
+						Inputs *map[string]Input "yaml:\"inputs\""
+					} "yaml:\"workflow_dispatch\""
+				}{
+					WorkflowCall: &struct {
+						Inputs  *map[string]Input  "yaml:\"inputs\""
+						Outputs *map[string]Output "yaml:\"outputs\""
+						Secrets *map[string]Secret "yaml:\"secrets\""
+					}{
+						Inputs: &map[string]Input{
+							"in2": {Description: "Input2", Required: false},
+							"in1": {Description: "Input1", Required: true},
+						},
+						Outputs: &map[string]Output{},
+						Secrets: &map[string]Secret{},
+					},
+				},
+			},
+			expectedInputs: &map[string]Input{
+				"in1": {Description: "Input1", Required: true},
+				"in2": {Description: "Input2", Required: false},
+			},
+		},
+		{
+			name: "Workflow call without inputs",
+			given: Workflow{
+				Name:        "A",
+				Description: "Test workflows",
+				Filename:    ".github/workflows/a.yml",
+				On: struct {
+					WorkflowCall *struct {
+						Inputs  *map[string]Input  "yaml:\"inputs\""
+						Outputs *map[string]Output "yaml:\"outputs\""
+						Secrets *map[string]Secret "yaml:\"secrets\""
+					} "yaml:\"workflow_call\""
+					WorkflowDispatch *struct {
+						Inputs *map[string]Input "yaml:\"inputs\""
+					} "yaml:\"workflow_dispatch\""
+				}{
+					WorkflowCall: &struct {
+						Inputs  *map[string]Input  "yaml:\"inputs\""
+						Outputs *map[string]Output "yaml:\"outputs\""
+						Secrets *map[string]Secret "yaml:\"secrets\""
+					}{
+						Inputs:  &map[string]Input{},
+						Outputs: &map[string]Output{},
+						Secrets: &map[string]Secret{},
+					},
+				},
+			},
+			expectedInputs: &map[string]Input{},
+		},
+		{
+			name: "Workflow call with nil inputs",
+			given: Workflow{
+				Name:        "A",
+				Description: "Test workflows",
+				Filename:    ".github/workflows/a.yml",
+				On: struct {
+					WorkflowCall *struct {
+						Inputs  *map[string]Input  "yaml:\"inputs\""
+						Outputs *map[string]Output "yaml:\"outputs\""
+						Secrets *map[string]Secret "yaml:\"secrets\""
+					} "yaml:\"workflow_call\""
+					WorkflowDispatch *struct {
+						Inputs *map[string]Input "yaml:\"inputs\""
+					} "yaml:\"workflow_dispatch\""
+				}{
+					WorkflowCall: &struct {
+						Inputs  *map[string]Input  "yaml:\"inputs\""
+						Outputs *map[string]Output "yaml:\"outputs\""
+						Secrets *map[string]Secret "yaml:\"secrets\""
+					}{
+						Inputs:  nil,
+						Outputs: &map[string]Output{},
+						Secrets: &map[string]Secret{},
+					},
+				},
+			},
+			expectedInputs: &map[string]Input{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			inputs := tt.given.getInputs()
+
+			if inputs == nil {
+				t.Errorf("Inputs is nil")
+			}
+
+			if len(*inputs) != len(*tt.expectedInputs) {
+				t.Errorf(errorf, "Inputs length doesn't match", len(*tt.expectedInputs), len(*inputs))
+			}
+
+			var expectedKeys = make([]string, 0, len(*tt.expectedInputs))
+			for key, _ := range *tt.expectedInputs {
+				expectedKeys = append(expectedKeys, key)
+			}
+			sort.Strings(expectedKeys)
+
+			var gotKeys = make([]string, 0, len(*inputs))
+			for key, _ := range *inputs {
+				gotKeys = append(gotKeys, key)
+			}
+
+			for i := range expectedKeys {
+				if expectedKeys[i] != gotKeys[i] {
+					t.Errorf(errorf, "Input keys order doesn't match", expectedKeys[i], gotKeys[i])
+				}
+
+				if (*inputs)[expectedKeys[i]].Description != (*tt.expectedInputs)[expectedKeys[i]].Description {
+					t.Errorf(errorf, "Input description doesn't match", (*tt.expectedInputs)[expectedKeys[i]].Description, (*inputs)[expectedKeys[i]].Description)
+				}
+
+				if (*inputs)[expectedKeys[i]].Required != (*tt.expectedInputs)[expectedKeys[i]].Required {
+					t.Errorf(errorf, "Input required doesn't match", (*tt.expectedInputs)[expectedKeys[i]].Required, (*inputs)[expectedKeys[i]].Required)
+				}
+			}
+		})
 	}
 }
