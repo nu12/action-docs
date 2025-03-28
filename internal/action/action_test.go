@@ -10,7 +10,10 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-const errorf = "Error: %v. \nExpected: %v \nGot: %v"
+const (
+	errorf           = "Error: %v. \nExpected: %v \nGot: %v"
+	expectedFilename = "action.yml"
+)
 
 var testData = []struct {
 	name                string
@@ -19,83 +22,79 @@ var testData = []struct {
 	expectedHash        string
 	expectedName        string
 	expectedDescription string
-	expectedFilename    string
 	expectedInputs      *map[string]Input
 	expectedOutputs     *map[string]Output
 }{
 	{
 		name: "Complete action",
 		data: `
-name: 'Composite action'
-description: 'Description of the action'
+name: 'Complete composite action'
+description: 'Description of the complete action'
 inputs:
-  in1:
-    description: 'Input1'
+  datain1:
+    description: 'Input1 from data in'
     required: true
-  in2:
-    description: 'Input2'
+  datain2:
+    description: 'Input2 from data in'
     required: false
-  in3:
-    description: 'Input3'
-    default: 'default value'
+  datain3:
+    description: 'Input3 from data in'
+    default: 'default value for datain3'
 outputs:
-  out1:
-    description: 'Output1'
+  dataout1:
+    description: 'Output from data out'
     value: 'Hello'
 `,
-		filename:            "actions/test/action.yml",
-		expectedHash:        "adc43796f07ed2b769847ffbeeb57280",
-		expectedName:        "Composite action",
-		expectedDescription: "Description of the action",
-		expectedFilename:    "action.yml",
+		filename:            "actions/a/action.yml",
+		expectedHash:        "bb5dd43b8ff38cb09999f920120be086",
+		expectedName:        "Complete composite action",
+		expectedDescription: "Description of the complete action",
 		expectedInputs: &map[string]Input{
-			"in1": {Description: "Input1", Required: true},
-			"in2": {Description: "Input2", Required: false},
-			"in3": {Description: "Input3", Default: "default value"},
+			"datain1": {Description: "Input1 from data in", Required: true},
+			"datain2": {Description: "Input2 from data in", Required: false},
+			"datain3": {Description: "Input3 from data in", Default: "default value for datain3"},
 		},
 		expectedOutputs: &map[string]Output{
-			"out1": {Description: "Output1"},
+			"dataout1": {Description: "Output from data out"},
 		},
 	},
 	{
 		name: "Without outputs",
 		data: `
-name: 'Composite action'
-description: 'Description of the action'
+name: 'Composite action without outputs'
+description: 'Description of the action without outputs'
 inputs:
-  in1:
-    description: 'Input1'
+  datain4:
+    description: 'Input4 from data in'
     required: true
-  in2:
-    description: 'Input2'
+  datain5:
+    description: 'Input5 from data in'
     required: false
-  in3:
-    description: 'Input3'
-    default: 'default value'
+  datain6:
+    description: 'Input6 from data in'
+    default: 'default value for datain6'
 `,
-		filename:            "actions/test/action.yml",
-		expectedHash:        "3c0052d79bab651a2844a74c343b340c",
-		expectedName:        "Composite action",
-		expectedDescription: "Description of the action",
-		expectedFilename:    "action.yml",
+		filename:            "actions/b/action.yml",
+		expectedHash:        "733a912d26b8407601cfe669af4c0a05",
+		expectedName:        "Composite action without outputs",
+		expectedDescription: "Description of the action without outputs",
 		expectedInputs: &map[string]Input{
-			"in1": {Description: "Input1", Required: true},
-			"in2": {Description: "Input2", Required: false},
-			"in3": {Description: "Input3", Default: "default value"},
+			"datain4": {Description: "Input4 from data in", Required: true},
+			"datain5": {Description: "Input5 from data in", Required: false},
+			"datain6": {Description: "Input6 from data in", Default: "default value for datain6"},
 		},
 		expectedOutputs: &map[string]Output{},
 	},
 	{
 		name: "Without inputs",
 		data: `
-name: 'Composite action'
+name: 'Composite action without inputs'
 description: 'Description of the empty action'
 `,
-		filename:            "actions/test/action.yml",
-		expectedHash:        "afefd9dc26139ad4cbe32dcd3269a4aa",
-		expectedName:        "Composite action",
+		filename:            "actions/c/action.yml",
+		expectedHash:        "18136161a6d6a1957dd26daeda2b18d7",
+		expectedName:        "Composite action without inputs",
 		expectedDescription: "Description of the empty action",
-		expectedFilename:    "action.yml",
 		expectedInputs:      &map[string]Input{},
 		expectedOutputs:     &map[string]Output{},
 	},
@@ -165,7 +164,7 @@ func TestMarkdown(t *testing.T) {
 	for _, tt := range testData {
 		t.Run(tt.name, func(t *testing.T) {
 			a := Action{}
-			a.Filename = "actions/test/action.yml"
+			a.Filename = tt.filename
 			err := yaml.Unmarshal([]byte(tt.data), &a)
 			if err != nil {
 				t.Errorf("error: %v", err)
@@ -188,18 +187,18 @@ func TestListInputs(t *testing.T) {
 		{
 			name: "Two inputs",
 			given: map[string]Input{
-				"in2": {Description: "Input2", Required: false, Default: "default2"},
-				"in1": {Description: "Input1", Required: true, Default: "default1"},
+				"in20": {Description: "Input20", Required: false, Default: "default20"},
+				"in10": {Description: "Input10", Required: true, Default: "default10"},
 			},
-			expected: "with:\n  in1: default1\n  in2: default2\n",
+			expected: "with:\n  in10: default10\n  in20: default20\n",
 		},
 		{
 			name: "Input without default value",
 			given: map[string]Input{
-				"in2": {Description: "Input2", Required: false, Default: "default2"},
-				"in1": {Description: "Input1", Required: true},
+				"in40": {Description: "Input40", Required: false, Default: "default40"},
+				"in30": {Description: "Input30", Required: true},
 			},
-			expected: "with:\n  in1: \n  in2: default2\n",
+			expected: "with:\n  in30: \n  in40: default40\n",
 		},
 		{
 			name:     "No inputs",
@@ -233,15 +232,15 @@ func TestGetInputs(t *testing.T) {
 			name: "Action with inputs",
 			given: Action{
 				Inputs: &map[string]Input{
-					"in3": {Description: "Input3", Default: "default value"},
-					"in2": {Description: "Input2", Required: false},
-					"in1": {Description: "Input1", Required: true},
+					"in300": {Description: "Input300", Default: "default value for in300"},
+					"in200": {Description: "Input200", Required: false},
+					"in100": {Description: "Input100", Required: true},
 				},
 			},
 			expectedInputs: &map[string]Input{
-				"in1": {Description: "Input1", Required: true},
-				"in2": {Description: "Input2", Required: false},
-				"in3": {Description: "Input3", Default: "default value"},
+				"in100": {Description: "Input100", Required: true},
+				"in200": {Description: "Input200", Required: false},
+				"in300": {Description: "Input300", Default: "default value for in300"},
 			},
 		},
 		{
@@ -265,7 +264,7 @@ func TestParse(t *testing.T) {
 	for _, tt := range testData {
 		t.Run(tt.name, func(t *testing.T) {
 			dir := t.TempDir()
-			absoluteFilename := dir + "/" + tt.expectedFilename
+			absoluteFilename := dir + "/" + expectedFilename
 
 			err := os.WriteFile(absoluteFilename, []byte(tt.data), 0644)
 			if err != nil {
