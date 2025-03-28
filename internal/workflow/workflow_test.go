@@ -416,13 +416,13 @@ func TestGetInputs(t *testing.T) {
 			}
 
 			var expectedKeys = make([]string, 0, len(*tt.expectedInputs))
-			for key := range *tt.expectedInputs {
+			for key, _ := range *tt.expectedInputs {
 				expectedKeys = append(expectedKeys, key)
 			}
 			sort.Strings(expectedKeys)
 
 			var gotKeys = make([]string, 0, len(*inputs))
-			for key := range *inputs {
+			for key, _ := range *inputs {
 				gotKeys = append(gotKeys, key)
 			}
 
