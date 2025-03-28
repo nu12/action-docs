@@ -26,7 +26,8 @@ type Workflow struct {
 		} `yaml:"workflow_dispatch"`
 	}
 
-	Filename string
+	Filename           string
+	isReusableWorkflow bool
 }
 
 type Input struct {
@@ -43,7 +44,16 @@ type Secret struct {
 }
 
 func (w *Workflow) IsReusableWorkflow() bool {
-	return w.On.WorkflowCall != nil
+	// In case the object is initialized without the Parse function
+	if w.On.WorkflowCall == nil {
+		return false
+	}
+	if w.On.WorkflowDispatch == nil {
+		return true
+	}
+
+	// In case the object is initialized with the Parse function
+	return w.isReusableWorkflow
 }
 
 func (w *Workflow) Markdown() string {
@@ -64,7 +74,6 @@ on:
 jobs:
   my-job:
     uses: %s@main
-    with: 
 %s`, w.Filename, listInputs(inputs, 6))))
 	}
 
@@ -96,7 +105,7 @@ jobs:
 		return md.String()
 	}
 
-	if w.On.WorkflowCall.Outputs != nil {
+	if w.On.WorkflowCall.Outputs != nil && len(*w.On.WorkflowCall.Outputs) > 0 {
 		md.Add(markdown.H3("Outputs"))
 
 		outputs := markdown.Table{
@@ -109,7 +118,7 @@ jobs:
 		md.Add(outputs.Sort(0))
 	}
 
-	if w.On.WorkflowCall.Secrets != nil {
+	if w.On.WorkflowCall.Secrets != nil && len(*w.On.WorkflowCall.Secrets) > 0 {
 		md.Add(markdown.H3("Secrets"))
 
 		secrets := markdown.Table{
@@ -138,6 +147,42 @@ func Parse(file string, log *logging.Log) *Workflow {
 		log.Warning(err.Error())
 	}
 	w.Filename = file
+
+	if w.On.WorkflowCall == nil {
+		w.isReusableWorkflow = false
+		w.On.WorkflowCall = &struct {
+			Inputs  *map[string]Input  `yaml:"inputs"`
+			Outputs *map[string]Output `yaml:"outputs"`
+			Secrets *map[string]Secret `yaml:"secrets"`
+		}{
+			Inputs:  &map[string]Input{},
+			Outputs: &map[string]Output{},
+			Secrets: &map[string]Secret{},
+		}
+	}
+
+	if w.On.WorkflowDispatch == nil {
+		w.isReusableWorkflow = true
+		w.On.WorkflowDispatch = &struct {
+			Inputs *map[string]Input `yaml:"inputs"`
+		}{
+			Inputs: &map[string]Input{},
+		}
+	}
+
+	if w.On.WorkflowCall.Inputs == nil {
+		w.On.WorkflowCall.Inputs = &map[string]Input{}
+	}
+	if w.On.WorkflowCall.Outputs == nil {
+		w.On.WorkflowCall.Outputs = &map[string]Output{}
+	}
+	if w.On.WorkflowCall.Secrets == nil {
+		w.On.WorkflowCall.Secrets = &map[string]Secret{}
+	}
+	if w.On.WorkflowDispatch.Inputs == nil {
+		w.On.WorkflowDispatch.Inputs = &map[string]Input{}
+	}
+
 	return w
 }
 
@@ -172,11 +217,14 @@ func listInputs(inputs *map[string]Input, spacing int) string {
 	if inputs == nil {
 		return ""
 	}
+	if len(*inputs) == 0 {
+		return ""
+	}
 
 	var result = []string{}
 	for name := range *inputs {
 		result = append(result, fmt.Sprintf("%s%s: \n", strings.Repeat(" ", spacing), name))
 	}
 	sort.Strings(result)
-	return strings.Join(result, "")
+	return fmt.Sprintf("%swith:\n%s", strings.Repeat(" ", spacing-2), strings.Join(result, ""))
 }
