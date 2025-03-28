@@ -165,7 +165,7 @@ func TestMarkdown(t *testing.T) {
 
 			if tt.expectedHash != helper.Hash(a.Markdown()) {
 				t.Errorf(errorf, "Markdown doesn't match", tt.expectedHash, helper.Hash(a.Markdown()))
-				t.Errorf(a.Markdown())
+				t.Error(a.Markdown())
 			}
 		})
 	}
