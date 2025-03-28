@@ -12,16 +12,20 @@ import (
 
 const errorf = "Error: %v. \nExpected: %v \nGot: %v"
 
-func TestMarkdown(t *testing.T) {
-	tests := []struct {
-		name     string
-		data     string
-		filename string
-		expected string
-	}{
-		{
-			name: "Complete action",
-			data: `
+var testData = []struct {
+	name                string
+	data                string
+	filename            string
+	expectedHash        string
+	expectedName        string
+	expectedDescription string
+	expectedFilename    string
+	expectedInputs      *map[string]Input
+	expectedOutputs     *map[string]Output
+}{
+	{
+		name: "Complete action",
+		data: `
 name: 'Composite action'
 description: 'Description of the action'
 inputs:
@@ -39,12 +43,23 @@ outputs:
     description: 'Output1'
     value: 'Hello'
 `,
-			filename: "actions/test/action.yml",
-			expected: "adc43796f07ed2b769847ffbeeb57280",
+		filename:            "actions/test/action.yml",
+		expectedHash:        "adc43796f07ed2b769847ffbeeb57280",
+		expectedName:        "Composite action",
+		expectedDescription: "Description of the action",
+		expectedFilename:    "action.yml",
+		expectedInputs: &map[string]Input{
+			"in1": {Description: "Input1", Required: true},
+			"in2": {Description: "Input2", Required: false},
+			"in3": {Description: "Input3", Default: "default value"},
 		},
-		{
-			name: "Without outputs",
-			data: `
+		expectedOutputs: &map[string]Output{
+			"out1": {Description: "Output1"},
+		},
+	},
+	{
+		name: "Without outputs",
+		data: `
 name: 'Composite action'
 description: 'Description of the action'
 inputs:
@@ -58,21 +73,96 @@ inputs:
     description: 'Input3'
     default: 'default value'
 `,
-			filename: "actions/test/action.yml",
-			expected: "3c0052d79bab651a2844a74c343b340c",
+		filename:            "actions/test/action.yml",
+		expectedHash:        "3c0052d79bab651a2844a74c343b340c",
+		expectedName:        "Composite action",
+		expectedDescription: "Description of the action",
+		expectedFilename:    "action.yml",
+		expectedInputs: &map[string]Input{
+			"in1": {Description: "Input1", Required: true},
+			"in2": {Description: "Input2", Required: false},
+			"in3": {Description: "Input3", Default: "default value"},
 		},
-		{
-			name: "Whithout inputs",
-			data: `
+		expectedOutputs: &map[string]Output{},
+	},
+	{
+		name: "Without inputs",
+		data: `
 name: 'Composite action'
-description: 'Description of the action'
+description: 'Description of the empty action'
 `,
-			filename: "actions/test/action.yml",
-			expected: "b3f3f6803829df63fb679c51b5a4ef70",
-		},
+		filename:            "actions/test/action.yml",
+		expectedHash:        "afefd9dc26139ad4cbe32dcd3269a4aa",
+		expectedName:        "Composite action",
+		expectedDescription: "Description of the empty action",
+		expectedFilename:    "action.yml",
+		expectedInputs:      &map[string]Input{},
+		expectedOutputs:     &map[string]Output{},
+	},
+}
+
+// Helper function to compare maps of inputs
+func compareInputs(t *testing.T, expected, actual *map[string]Input) {
+	if actual == nil {
+		t.Errorf("Inputs is nil")
+	}
+	if len(*expected) != len(*actual) {
+		t.Errorf(errorf, "Inputs length doesn't match", len(*expected), len(*actual))
 	}
 
-	for _, tt := range tests {
+	expectedKeys := sortedKeys(*expected)
+	actualKeys := sortedKeys(*actual)
+
+	for i := range expectedKeys {
+		if expectedKeys[i] != actualKeys[i] {
+			t.Errorf(errorf, "Input keys order doesn't match", expectedKeys[i], actualKeys[i])
+		}
+
+		exp := (*expected)[expectedKeys[i]]
+		act := (*actual)[expectedKeys[i]]
+
+		if exp.Description != act.Description {
+			t.Errorf(errorf, "Input description doesn't match", exp.Description, act.Description)
+		}
+		if exp.Required != act.Required {
+			t.Errorf(errorf, "Input required doesn't match", exp.Required, act.Required)
+		}
+		if exp.Default != act.Default {
+			t.Errorf(errorf, "Input default doesn't match", exp.Default, act.Default)
+		}
+	}
+}
+
+// Helper function to compare maps of outputs
+func compareOutputs(t *testing.T, expected, actual *map[string]Output) {
+	if actual == nil {
+		t.Errorf("Outputs is nil")
+	}
+
+	if len(*expected) != len(*actual) {
+		t.Errorf(errorf, "Outputs length doesn't match", len(*expected), len(*actual))
+	}
+
+	for name, exp := range *expected {
+		act := (*actual)[name]
+		if exp.Description != act.Description {
+			t.Errorf(errorf, "Output description doesn't match", exp.Description, act.Description)
+		}
+	}
+}
+
+// Helper function to get sorted keys of a map
+func sortedKeys(m map[string]Input) []string {
+	keys := make([]string, 0, len(m))
+	for key := range m {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+func TestMarkdown(t *testing.T) {
+	for _, tt := range testData {
 		t.Run(tt.name, func(t *testing.T) {
 			a := Action{}
 			a.Filename = "actions/test/action.yml"
@@ -81,11 +171,10 @@ description: 'Description of the action'
 				t.Errorf("error: %v", err)
 			}
 
-			if tt.expected != helper.Hash(a.Markdown()) {
-				t.Errorf(errorf, "Markdown doesn't match", tt.expected, helper.Hash(a.Markdown()))
+			if tt.expectedHash != helper.Hash(a.Markdown()) {
+				t.Errorf(errorf, "Markdown doesn't match", tt.expectedHash, helper.Hash(a.Markdown()))
 				t.Errorf(a.Markdown())
 			}
-
 		})
 	}
 }
@@ -130,7 +219,6 @@ func TestListInputs(t *testing.T) {
 			if got != tt.expected {
 				t.Errorf(errorf, "List inputs doesn't match", tt.expected, got)
 			}
-
 		})
 	}
 }
@@ -167,104 +255,14 @@ func TestGetInputs(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			inputs := tt.given.getInputs()
 
-			if inputs == nil {
-				t.Errorf("Inputs is nil")
-			}
-
-			if len(*inputs) != len(*tt.expectedInputs) {
-				t.Errorf(errorf, "Inputs length doesn't match", len(*tt.expectedInputs), len(*inputs))
-			}
-
-			var expectedKeys = make([]string, 0, len(*tt.expectedInputs))
-			for key, _ := range *tt.expectedInputs {
-				expectedKeys = append(expectedKeys, key)
-			}
-			sort.Strings(expectedKeys)
-
-			var gotKeys = make([]string, 0, len(*inputs))
-			for key, _ := range *inputs {
-				gotKeys = append(gotKeys, key)
-			}
-
-			for i := range expectedKeys {
-				if expectedKeys[i] != gotKeys[i] {
-					t.Errorf(errorf, "Input keys order doesn't match", expectedKeys[i], gotKeys[i])
-				}
-
-				if (*inputs)[expectedKeys[i]].Description != (*tt.expectedInputs)[expectedKeys[i]].Description {
-					t.Errorf(errorf, "Input description doesn't match", (*tt.expectedInputs)[expectedKeys[i]].Description, (*inputs)[expectedKeys[i]].Description)
-				}
-
-				if (*inputs)[expectedKeys[i]].Required != (*tt.expectedInputs)[expectedKeys[i]].Required {
-					t.Errorf(errorf, "Input required doesn't match", (*tt.expectedInputs)[expectedKeys[i]].Required, (*inputs)[expectedKeys[i]].Required)
-				}
-
-				if (*inputs)[expectedKeys[i]].Default != (*tt.expectedInputs)[expectedKeys[i]].Default {
-					t.Errorf(errorf, "Input default doesn't match", (*tt.expectedInputs)[expectedKeys[i]].Default, (*inputs)[expectedKeys[i]].Default)
-				}
-			}
+			compareInputs(t, tt.expectedInputs, inputs)
 		})
 	}
 }
 
 func TestParse(t *testing.T) {
-	tests := []struct {
-		name                string
-		data                string
-		expectedName        string
-		expectedDescription string
-		expectedFilename    string
-		expectedInputs      *map[string]Input
-		expectedOutputs     *map[string]Output
-	}{
-		{
-			name: "Complete action",
-			data: `
-name: 'Composite action'
-description: 'Description of the action'
-inputs:
-  in1:
-    description: 'Input1'
-    required: true
-  in2:
-    description: 'Input2'
-    required: false
-  in3:
-    description: 'Input3'
-    default: 'default value'
-outputs:
-  out1:
-    description: 'Output1'
-    value: 'Hello'
-`,
-			expectedName:        "Composite action",
-			expectedDescription: "Description of the action",
-			expectedFilename:    "action.yml",
-			expectedInputs: &map[string]Input{
-				"in1": {Description: "Input1", Required: true},
-				"in2": {Description: "Input2", Required: false},
-				"in3": {Description: "Input3", Default: "default value"},
-			},
-			expectedOutputs: &map[string]Output{
-				"out1": {Description: "Output1"},
-			},
-		},
-		{
-			name: "Empty action",
-			data: `
-name: 'Composite action'
-description: 'Description of the empty action'
-`,
-			expectedName:        "Composite action",
-			expectedDescription: "Description of the empty action",
-			expectedFilename:    "action.yml",
-			expectedInputs:      &map[string]Input{},
-			expectedOutputs:     &map[string]Output{},
-		},
-	}
-
 	log := logging.NewLogger()
-	for _, tt := range tests {
+	for _, tt := range testData {
 		t.Run(tt.name, func(t *testing.T) {
 			dir := t.TempDir()
 			absoluteFilename := dir + "/" + tt.expectedFilename
@@ -289,41 +287,8 @@ description: 'Description of the empty action'
 				t.Errorf(errorf, "Description doesn't match", tt.expectedDescription, a.Description)
 			}
 
-			if a.Inputs == nil {
-				t.Errorf("Inputs is nil")
-			}
-
-			if a.Outputs == nil {
-				t.Errorf("Outputs is nil")
-			}
-
-			if len(*a.Inputs) != len(*tt.expectedInputs) {
-				t.Errorf(errorf, "Inputs length doesn't match", len(*tt.expectedInputs), len(*a.Inputs))
-			}
-
-			if len(*a.Outputs) != len(*tt.expectedOutputs) {
-				t.Errorf(errorf, "Outputs length doesn't match", len(*tt.expectedOutputs), len(*a.Outputs))
-			}
-
-			for name, input := range *tt.expectedInputs {
-				if input.Description != (*a.Inputs)[name].Description {
-					t.Errorf(errorf, "Input description doesn't match", input.Description, (*a.Inputs)[name].Description)
-				}
-
-				if input.Required != (*a.Inputs)[name].Required {
-					t.Errorf(errorf, "Input required doesn't match", input.Required, (*a.Inputs)[name].Required)
-				}
-
-				if input.Default != (*a.Inputs)[name].Default {
-					t.Errorf(errorf, "Input default doesn't match", input.Default, (*a.Inputs)[name].Default)
-				}
-			}
-
-			for name, output := range *tt.expectedOutputs {
-				if output.Description != (*a.Outputs)[name].Description {
-					t.Errorf(errorf, "Input description doesn't match", output.Description, (*a.Outputs)[name].Description)
-				}
-			}
+			compareInputs(t, tt.expectedInputs, a.Inputs)
+			compareOutputs(t, tt.expectedOutputs, a.Outputs)
 		})
 	}
 }
