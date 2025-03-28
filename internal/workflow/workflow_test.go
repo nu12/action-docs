@@ -215,7 +215,7 @@ on:
 
 			if tt.expected != helper.Hash(w.Markdown()) {
 				t.Errorf(errorf, "Markdown doesn't match", tt.expected, helper.Hash(w.Markdown()))
-				t.Errorf(w.Markdown())
+				t.Error(w.Markdown())
 			}
 		})
 	}
@@ -452,22 +452,18 @@ func TestGetInputs(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			inputs := tt.given.getInputs()
 
-			if inputs == nil {
-				t.Errorf("Inputs is nil")
-			}
-
 			if len(*inputs) != len(*tt.expectedInputs) {
 				t.Errorf(errorf, "Inputs length doesn't match", len(*tt.expectedInputs), len(*inputs))
 			}
 
 			var expectedKeys = make([]string, 0, len(*tt.expectedInputs))
-			for key, _ := range *tt.expectedInputs {
+			for key := range *tt.expectedInputs {
 				expectedKeys = append(expectedKeys, key)
 			}
 			sort.Strings(expectedKeys)
 
 			var gotKeys = make([]string, 0, len(*inputs))
-			for key, _ := range *inputs {
+			for key := range *inputs {
 				gotKeys = append(gotKeys, key)
 			}
 

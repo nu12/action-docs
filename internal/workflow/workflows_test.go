@@ -61,7 +61,7 @@ func TestWorkflows(t *testing.T) {
 
 			if tt.expected != helper.Hash(ws.String()) {
 				t.Errorf(errorf, "mismatch", tt.expected, helper.Hash(ws.String()))
-				t.Errorf(ws.String())
+				t.Error(ws.String())
 			}
 		})
 	}
