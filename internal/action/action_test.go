@@ -102,9 +102,6 @@ description: 'Description of the empty action'
 
 // Helper function to compare maps of inputs
 func compareInputs(t *testing.T, expected, actual *map[string]Input) {
-	if actual == nil {
-		t.Errorf("Inputs is nil")
-	}
 	if len(*expected) != len(*actual) {
 		t.Errorf(errorf, "Inputs length doesn't match", len(*expected), len(*actual))
 	}
@@ -134,10 +131,6 @@ func compareInputs(t *testing.T, expected, actual *map[string]Input) {
 
 // Helper function to compare maps of outputs
 func compareOutputs(t *testing.T, expected, actual *map[string]Output) {
-	if actual == nil {
-		t.Errorf("Outputs is nil")
-	}
-
 	if len(*expected) != len(*actual) {
 		t.Errorf(errorf, "Outputs length doesn't match", len(*expected), len(*actual))
 	}
