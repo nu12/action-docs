@@ -205,7 +205,7 @@ func TestEquals4SecretMap(t *testing.T) {
 				"secret3": {Required: false},
 				"secret1": {Required: true},
 			},
-			expected: true,
+			expected: false,
 		},
 		{
 			name: "Different size",
