@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/nu12/action-docs/internal/helper"
+	"github.com/nu12/action-docs/internal/types"
 	"github.com/nu12/go-logging"
 	"gopkg.in/yaml.v3"
 )
@@ -22,8 +23,8 @@ var testData = []struct {
 	expectedHash        string
 	expectedName        string
 	expectedDescription string
-	expectedInputs      *map[string]Input
-	expectedOutputs     *map[string]Output
+	expectedInputs      *types.InputMap
+	expectedOutputs     *types.OutputMap
 }{
 	{
 		name: "Complete action",
@@ -49,12 +50,12 @@ outputs:
 		expectedHash:        "bb5dd43b8ff38cb09999f920120be086",
 		expectedName:        "Complete composite action",
 		expectedDescription: "Description of the complete action",
-		expectedInputs: &map[string]Input{
+		expectedInputs: &types.InputMap{
 			"datain1": {Description: "Input1 from data in", Required: true},
 			"datain2": {Description: "Input2 from data in", Required: false},
 			"datain3": {Description: "Input3 from data in", Default: "default value for datain3"},
 		},
-		expectedOutputs: &map[string]Output{
+		expectedOutputs: &types.OutputMap{
 			"dataout1": {Description: "Output from data out"},
 		},
 	},
@@ -78,12 +79,12 @@ inputs:
 		expectedHash:        "733a912d26b8407601cfe669af4c0a05",
 		expectedName:        "Composite action without outputs",
 		expectedDescription: "Description of the action without outputs",
-		expectedInputs: &map[string]Input{
+		expectedInputs: &types.InputMap{
 			"datain4": {Description: "Input4 from data in", Required: true},
 			"datain5": {Description: "Input5 from data in", Required: false},
 			"datain6": {Description: "Input6 from data in", Default: "default value for datain6"},
 		},
-		expectedOutputs: &map[string]Output{},
+		expectedOutputs: &types.OutputMap{},
 	},
 	{
 		name: "Without inputs",
@@ -95,13 +96,13 @@ description: 'Description of the empty action'
 		expectedHash:        "18136161a6d6a1957dd26daeda2b18d7",
 		expectedName:        "Composite action without inputs",
 		expectedDescription: "Description of the empty action",
-		expectedInputs:      &map[string]Input{},
-		expectedOutputs:     &map[string]Output{},
+		expectedInputs:      &types.InputMap{},
+		expectedOutputs:     &types.OutputMap{},
 	},
 }
 
 // Helper function to compare maps of inputs
-func compareInputs(t *testing.T, expected, actual *map[string]Input) {
+func compareInputs(t *testing.T, expected, actual *types.InputMap) {
 	if len(*expected) != len(*actual) {
 		t.Errorf(errorf, "Inputs length doesn't match", len(*expected), len(*actual))
 	}
@@ -130,7 +131,7 @@ func compareInputs(t *testing.T, expected, actual *map[string]Input) {
 }
 
 // Helper function to compare maps of outputs
-func compareOutputs(t *testing.T, expected, actual *map[string]Output) {
+func compareOutputs(t *testing.T, expected, actual *types.OutputMap) {
 	if len(*expected) != len(*actual) {
 		t.Errorf(errorf, "Outputs length doesn't match", len(*expected), len(*actual))
 	}
@@ -144,7 +145,7 @@ func compareOutputs(t *testing.T, expected, actual *map[string]Output) {
 }
 
 // Helper function to get sorted keys of a map
-func sortedKeys(m map[string]Input) []string {
+func sortedKeys(m map[string]types.Input) []string {
 	keys := make([]string, 0, len(m))
 	for key := range m {
 		keys = append(keys, key)
@@ -167,87 +168,6 @@ func TestMarkdown(t *testing.T) {
 				t.Errorf(errorf, "Markdown doesn't match", tt.expectedHash, helper.Hash(a.Markdown()))
 				t.Error(a.Markdown())
 			}
-		})
-	}
-}
-
-func TestListInputs(t *testing.T) {
-	tests := []struct {
-		name     string
-		given    map[string]Input
-		expected string
-	}{
-		{
-			name: "Two inputs",
-			given: map[string]Input{
-				"in20": {Description: "Input20", Required: false, Default: "default20"},
-				"in10": {Description: "Input10", Required: true, Default: "default10"},
-			},
-			expected: "with:\n  in10: default10\n  in20: default20\n",
-		},
-		{
-			name: "Input without default value",
-			given: map[string]Input{
-				"in40": {Description: "Input40", Required: false, Default: "default40"},
-				"in30": {Description: "Input30", Required: true},
-			},
-			expected: "with:\n  in30: \n  in40: default40\n",
-		},
-		{
-			name:     "No inputs",
-			given:    map[string]Input{},
-			expected: "",
-		},
-		{
-			name:     "Nil inputs",
-			given:    nil,
-			expected: "",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := listInputs(&tt.given, 2)
-			if got != tt.expected {
-				t.Errorf(errorf, "List inputs doesn't match", tt.expected, got)
-			}
-		})
-	}
-}
-
-func TestGetInputs(t *testing.T) {
-	tests := []struct {
-		name           string
-		given          Action
-		expectedInputs *map[string]Input
-	}{
-		{
-			name: "Action with inputs",
-			given: Action{
-				Inputs: &map[string]Input{
-					"in300": {Description: "Input300", Default: "default value for in300"},
-					"in200": {Description: "Input200", Required: false},
-					"in100": {Description: "Input100", Required: true},
-				},
-			},
-			expectedInputs: &map[string]Input{
-				"in100": {Description: "Input100", Required: true},
-				"in200": {Description: "Input200", Required: false},
-				"in300": {Description: "Input300", Default: "default value for in300"},
-			},
-		},
-		{
-			name:           "Action with nil inputs",
-			given:          Action{},
-			expectedInputs: &map[string]Input{},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			inputs := tt.given.getInputs()
-
-			compareInputs(t, tt.expectedInputs, inputs)
 		})
 	}
 }
