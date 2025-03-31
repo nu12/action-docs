@@ -200,6 +200,14 @@ func TestEquals4SecretMap(t *testing.T) {
 			expected: true,
 		},
 		{
+			name: "Different keys",
+			right: &SecretMap{
+				"secret3": {Required: false},
+				"secret1": {Required: true},
+			},
+			expected: true,
+		},
+		{
 			name: "Different size",
 			right: &SecretMap{
 				"secret1": {Required: true},
