@@ -3,11 +3,11 @@ package workflow
 import (
 	"fmt"
 	"os"
-	"sort"
 	"strconv"
 	"strings"
 
 	"github.com/nu12/action-docs/internal/markdown"
+	"github.com/nu12/action-docs/internal/types"
 	"github.com/nu12/go-logging"
 	"gopkg.in/yaml.v3"
 )
@@ -17,30 +17,16 @@ type Workflow struct {
 	Description string `yaml:"description"`
 	On          struct {
 		WorkflowCall *struct {
-			Inputs  *map[string]Input  `yaml:"inputs"`
-			Outputs *map[string]Output `yaml:"outputs"`
-			Secrets *map[string]Secret `yaml:"secrets"`
+			Inputs  *types.InputMap  `yaml:"inputs"`
+			Outputs *types.OutputMap `yaml:"outputs"`
+			Secrets *types.SecretMap `yaml:"secrets"`
 		} `yaml:"workflow_call"`
 		WorkflowDispatch *struct {
-			Inputs *map[string]Input `yaml:"inputs"`
+			Inputs *types.InputMap `yaml:"inputs"`
 		} `yaml:"workflow_dispatch"`
 	}
-
 	Filename           string
 	isReusableWorkflow bool
-}
-
-type Input struct {
-	Description string `yaml:"description"`
-	Required    bool   `yaml:"required"`
-	Type        string `yaml:"type"`
-	Default     string `yaml:"default"`
-}
-type Output struct {
-	Description string `yaml:"description"`
-}
-type Secret struct {
-	Required bool `yaml:"required"`
 }
 
 func (w *Workflow) IsReusableWorkflow() bool {
@@ -57,7 +43,7 @@ func (w *Workflow) IsReusableWorkflow() bool {
 }
 
 func (w *Workflow) Markdown() string {
-	inputs := w.getInputs()
+	inputs, outputs, secrets := w.getInputsOutputsSecrets()
 	md := &markdown.Markdown{}
 	md.Add(markdown.H2(w.Name)).
 		Add(markdown.P("File: " + w.Filename)).
@@ -65,30 +51,21 @@ func (w *Workflow) Markdown() string {
 
 	if w.IsReusableWorkflow() {
 		md.Add(markdown.H3("Usage example")).
-			Add(markdown.Code(fmt.Sprintf(`name: My workflow
-on:
-  push:
-    branches:
-    - main
-
-jobs:
-  my-job:
-    uses: %s@main
-%s`, w.Filename, listInputs(inputs, 6))))
+			Add(markdown.Code(fmt.Sprintf("name: My workflow\non:\n  push:\n    branches:\n    - main\n\njobs:\n  my-job:\n    uses: %s@main\n%s", w.Filename, inputs.ToString(6))))
 	}
 
 	if len(*inputs) > 0 {
 		md.Add(markdown.H3("Inputs"))
 
 		if w.IsReusableWorkflow() {
-			in := markdown.Table{
+			tInputs := markdown.Table{
 				Header: markdown.Header{"Name", "Type", "Description", "Required"},
 			}
 			for name, input := range *inputs {
-				in.AddRow(markdown.Row{name, input.Type, input.Description, strconv.FormatBool(input.Required)})
+				tInputs.AddRow(markdown.Row{name, input.Type, input.Description, strconv.FormatBool(input.Required)})
 			}
 
-			md.Add(in.Sort(0))
+			md.Add(tInputs.Sort(0))
 		} else {
 			in := markdown.Table{
 				Header: markdown.Header{"Name", "Type", "Description", "Default"},
@@ -101,41 +78,65 @@ jobs:
 		}
 	}
 
-	if w.On.WorkflowCall == nil {
-		return md.String()
-	}
-
-	if w.On.WorkflowCall.Outputs != nil && len(*w.On.WorkflowCall.Outputs) > 0 {
+	if len(*outputs) > 0 {
 		md.Add(markdown.H3("Outputs"))
 
-		outputs := markdown.Table{
+		tOutputs := markdown.Table{
 			Header: markdown.Header{"Name", "Description"},
 		}
 		for name, output := range *w.On.WorkflowCall.Outputs {
-			outputs.AddRow(markdown.Row{name, output.Description})
+			tOutputs.AddRow(markdown.Row{name, output.Description})
 		}
 
-		md.Add(outputs.Sort(0))
+		md.Add(tOutputs.Sort(0))
 	}
 
-	if w.On.WorkflowCall.Secrets != nil && len(*w.On.WorkflowCall.Secrets) > 0 {
+	if len(*secrets) > 0 {
 		md.Add(markdown.H3("Secrets"))
 
-		secrets := markdown.Table{
+		tSecrets := markdown.Table{
 			Header: markdown.Header{"Name", "Required"},
 		}
 		for name, secret := range *w.On.WorkflowCall.Secrets {
-			secrets.AddRow(markdown.Row{name, strconv.FormatBool(secret.Required)})
+			tSecrets.AddRow(markdown.Row{name, strconv.FormatBool(secret.Required)})
 		}
 
-		md.Add(secrets.Sort(0))
+		md.Add(tSecrets.Sort(0))
 	}
 
 	return md.String()
 }
 
 func Parse(file string, log *logging.Log) *Workflow {
-	w := &Workflow{}
+	w := &Workflow{
+		On: struct {
+			WorkflowCall *struct {
+				Inputs  *types.InputMap  `yaml:"inputs"`
+				Outputs *types.OutputMap `yaml:"outputs"`
+				Secrets *types.SecretMap `yaml:"secrets"`
+			} `yaml:"workflow_call"`
+			WorkflowDispatch *struct {
+				Inputs *types.InputMap `yaml:"inputs"`
+			} `yaml:"workflow_dispatch"`
+		}{
+			WorkflowCall: &struct {
+				Inputs  *types.InputMap  `yaml:"inputs"`
+				Outputs *types.OutputMap `yaml:"outputs"`
+				Secrets *types.SecretMap `yaml:"secrets"`
+			}{
+				Inputs:  &types.InputMap{},
+				Outputs: &types.OutputMap{},
+				Secrets: &types.SecretMap{},
+			},
+			WorkflowDispatch: &struct {
+				Inputs *types.InputMap `yaml:"inputs"`
+			}{
+				Inputs: &types.InputMap{},
+			},
+		},
+		isReusableWorkflow: false,
+	}
+
 	b, err := os.ReadFile(file)
 	if err != nil {
 		log.Warning(err.Error())
@@ -148,83 +149,52 @@ func Parse(file string, log *logging.Log) *Workflow {
 	}
 	w.Filename = file
 
-	if w.On.WorkflowCall == nil {
-		w.isReusableWorkflow = false
-		w.On.WorkflowCall = &struct {
-			Inputs  *map[string]Input  `yaml:"inputs"`
-			Outputs *map[string]Output `yaml:"outputs"`
-			Secrets *map[string]Secret `yaml:"secrets"`
-		}{
-			Inputs:  &map[string]Input{},
-			Outputs: &map[string]Output{},
-			Secrets: &map[string]Secret{},
-		}
-	}
-
-	if w.On.WorkflowDispatch == nil {
+	if strings.Contains(string(b), "workflow_call") {
 		w.isReusableWorkflow = true
-		w.On.WorkflowDispatch = &struct {
-			Inputs *map[string]Input `yaml:"inputs"`
-		}{
-			Inputs: &map[string]Input{},
-		}
 	}
-
-	if w.On.WorkflowCall.Inputs == nil {
-		w.On.WorkflowCall.Inputs = &map[string]Input{}
-	}
-	if w.On.WorkflowCall.Outputs == nil {
-		w.On.WorkflowCall.Outputs = &map[string]Output{}
-	}
-	if w.On.WorkflowCall.Secrets == nil {
-		w.On.WorkflowCall.Secrets = &map[string]Secret{}
-	}
-	if w.On.WorkflowDispatch.Inputs == nil {
-		w.On.WorkflowDispatch.Inputs = &map[string]Input{}
-	}
-
 	return w
 }
 
-func (w *Workflow) getInputs() *map[string]Input {
-	sorted := make(map[string]Input)
-	var keys = []string{}
-	if w.On.WorkflowCall != nil {
-		if w.On.WorkflowCall.Inputs != nil {
-			for k := range *w.On.WorkflowCall.Inputs {
-				keys = append(keys, k)
-			}
-			sort.Strings(keys)
-			for _, k := range keys {
-				sorted[k] = (*w.On.WorkflowCall.Inputs)[k]
-			}
+func (w *Workflow) getInputs() *types.InputMap {
+	if w.IsReusableWorkflow() {
+		if w.On.WorkflowCall.Inputs == nil {
+			return &types.InputMap{}
 		}
-	} else if w.On.WorkflowDispatch != nil {
-		if w.On.WorkflowDispatch.Inputs != nil {
-			for k := range *w.On.WorkflowDispatch.Inputs {
-				keys = append(keys, k)
-			}
-			sort.Strings(keys)
-			for _, k := range keys {
-				sorted[k] = (*w.On.WorkflowDispatch.Inputs)[k]
-			}
-		}
+		w.On.WorkflowCall.Inputs.Sort()
+		return w.On.WorkflowCall.Inputs
 	}
-	return &sorted
+	if w.On.WorkflowDispatch == nil {
+		return &types.InputMap{}
+	}
+	if w.On.WorkflowDispatch.Inputs == nil {
+		return &types.InputMap{}
+	}
+	w.On.WorkflowDispatch.Inputs.Sort()
+	return w.On.WorkflowDispatch.Inputs
 }
 
-func listInputs(inputs *map[string]Input, spacing int) string {
-	if inputs == nil {
-		return ""
+func (w *Workflow) getOutputs() *types.OutputMap {
+	if w.IsReusableWorkflow() {
+		if w.On.WorkflowCall.Outputs == nil {
+			return &types.OutputMap{}
+		}
+		w.On.WorkflowCall.Outputs.Sort()
+		return w.On.WorkflowCall.Outputs
 	}
-	if len(*inputs) == 0 {
-		return ""
-	}
+	return &types.OutputMap{}
+}
 
-	var result = []string{}
-	for name := range *inputs {
-		result = append(result, fmt.Sprintf("%s%s: \n", strings.Repeat(" ", spacing), name))
+func (w *Workflow) getSecrets() *types.SecretMap {
+	if w.IsReusableWorkflow() {
+		if w.On.WorkflowCall.Secrets == nil {
+			return &types.SecretMap{}
+		}
+		w.On.WorkflowCall.Secrets.Sort()
+		return w.On.WorkflowCall.Secrets
 	}
-	sort.Strings(result)
-	return fmt.Sprintf("%swith:\n%s", strings.Repeat(" ", spacing-2), strings.Join(result, ""))
+	return &types.SecretMap{}
+}
+
+func (w *Workflow) getInputsOutputsSecrets() (*types.InputMap, *types.OutputMap, *types.SecretMap) {
+	return w.getInputs(), w.getOutputs(), w.getSecrets()
 }
