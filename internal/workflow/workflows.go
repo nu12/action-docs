@@ -21,7 +21,7 @@ func (w *Workflows) AddWorkflow(workflow *Workflow) *Workflows {
 	return w
 }
 
-func (w *Workflows) String() string {
+func (w *Workflows) Markdown() string {
 	var body = ""
 	for _, workflow := range w.Workflows {
 		body += workflow.Markdown()

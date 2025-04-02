@@ -30,7 +30,7 @@ var workflowsCmd = &cobra.Command{
 			ws.AddWorkflow(w)
 		}
 
-		if err := os.WriteFile(workflowsOutput+"/README.md", []byte(ws.String()), 0644); err != nil {
+		if err := os.WriteFile(workflowsOutput+"/README.md", []byte(ws.Markdown()), 0644); err != nil {
 			log.Fatal(err)
 		}
 	},

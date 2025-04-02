@@ -9,9 +9,9 @@ import (
 
 func TestWorkflows(t *testing.T) {
 	tests := []struct {
-		name     string
-		given    []Workflow
-		expected string
+		name         string
+		given        []Workflow
+		expectedHash string
 	}{
 		{
 			name: "One workflow",
@@ -22,7 +22,7 @@ func TestWorkflows(t *testing.T) {
 					Filename:    ".github/workflows/a.yml",
 				},
 			},
-			expected: "7e74e2d88376bf641107fe22ea09ce68",
+			expectedHash: "7e74e2d88376bf641107fe22ea09ce68",
 		},
 		{
 			name: "Two workflows",
@@ -38,7 +38,7 @@ func TestWorkflows(t *testing.T) {
 					Filename:    ".github/workflows/b.yml",
 				},
 			},
-			expected: "e6b8867c16847397e0eab0d694a39526",
+			expectedHash: "e6b8867c16847397e0eab0d694a39526",
 		},
 	}
 
@@ -51,17 +51,21 @@ func TestWorkflows(t *testing.T) {
 			for _, w := range tt.given {
 				ws.AddWorkflow(&w)
 			}
+
+			// Check # of items in the list
 			if len(ws.Content.Items) != len(tt.given) {
 				t.Errorf(errorf, "contents size mismatch", len(tt.given), len(ws.Content.Items))
 			}
 
+			// Check # of workflows
 			if len(ws.Workflows) != len(tt.given) {
 				t.Errorf(errorf, "workflows size mismatch", len(tt.given), len(ws.Workflows))
 			}
 
-			if tt.expected != helper.Hash(ws.String()) {
-				t.Errorf(errorf, "mismatch", tt.expected, helper.Hash(ws.String()))
-				t.Error(ws.String())
+			// Check Markdown
+			if tt.expectedHash != helper.Hash(ws.Markdown()) {
+				t.Errorf(errorf, "mismatch", tt.expectedHash, helper.Hash(ws.Markdown()))
+				t.Error(ws.Markdown())
 			}
 		})
 	}
