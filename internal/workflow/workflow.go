@@ -26,20 +26,7 @@ type Workflow struct {
 		} `yaml:"workflow_dispatch"`
 	}
 	Filename           string
-	isReusableWorkflow bool
-}
-
-func (w *Workflow) IsReusableWorkflow() bool {
-	// In case the object is initialized without the Parse function
-	if w.On.WorkflowCall == nil {
-		return false
-	}
-	if w.On.WorkflowDispatch == nil {
-		return true
-	}
-
-	// In case the object is initialized with the Parse function
-	return w.isReusableWorkflow
+	IsReusableWorkflow bool
 }
 
 func (w *Workflow) Markdown() string {
@@ -49,7 +36,7 @@ func (w *Workflow) Markdown() string {
 		Add(markdown.P("File: " + w.Filename)).
 		Add(markdown.P(w.Description))
 
-	if w.IsReusableWorkflow() {
+	if w.IsReusableWorkflow {
 		md.Add(markdown.H3("Usage example")).
 			Add(markdown.Code(fmt.Sprintf("name: My workflow\non:\n  push:\n    branches:\n    - main\n\njobs:\n  my-job:\n    uses: %s@main\n%s", w.Filename, inputs.ToString(6))))
 	}
@@ -57,7 +44,7 @@ func (w *Workflow) Markdown() string {
 	if len(*inputs) > 0 {
 		md.Add(markdown.H3("Inputs"))
 
-		if w.IsReusableWorkflow() {
+		if w.IsReusableWorkflow {
 			tInputs := markdown.Table{
 				Header: markdown.Header{"Name", "Type", "Description", "Required"},
 			}
@@ -134,7 +121,7 @@ func Parse(file string, log *logging.Log) *Workflow {
 				Inputs: &types.InputMap{},
 			},
 		},
-		isReusableWorkflow: false,
+		IsReusableWorkflow: false,
 	}
 
 	b, err := os.ReadFile(file)
@@ -150,13 +137,13 @@ func Parse(file string, log *logging.Log) *Workflow {
 	w.Filename = file
 
 	if strings.Contains(string(b), "workflow_call") {
-		w.isReusableWorkflow = true
+		w.IsReusableWorkflow = true
 	}
 	return w
 }
 
 func (w *Workflow) getInputs() *types.InputMap {
-	if w.IsReusableWorkflow() {
+	if w.IsReusableWorkflow {
 		if w.On.WorkflowCall.Inputs == nil {
 			return &types.InputMap{}
 		}
@@ -174,7 +161,7 @@ func (w *Workflow) getInputs() *types.InputMap {
 }
 
 func (w *Workflow) getOutputs() *types.OutputMap {
-	if w.IsReusableWorkflow() {
+	if w.IsReusableWorkflow {
 		if w.On.WorkflowCall.Outputs == nil {
 			return &types.OutputMap{}
 		}
@@ -185,7 +172,7 @@ func (w *Workflow) getOutputs() *types.OutputMap {
 }
 
 func (w *Workflow) getSecrets() *types.SecretMap {
-	if w.IsReusableWorkflow() {
+	if w.IsReusableWorkflow {
 		if w.On.WorkflowCall.Secrets == nil {
 			return &types.SecretMap{}
 		}
