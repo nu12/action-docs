@@ -135,7 +135,7 @@ on:
 			if err != nil {
 				t.Fatalf("error: %v", err)
 			}
-			defer os.Remove(tmpFile)
+			defer os.Remove(tmpFile) //nolint:errcheck
 
 			// Parse
 			w := Parse(tmpFile, log)
