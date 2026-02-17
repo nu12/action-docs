@@ -111,7 +111,7 @@ description: 'Description of the empty action'
 			if err != nil {
 				t.Fatalf("error: %v", err)
 			}
-			defer os.Remove(tmpFile)
+			defer os.Remove(tmpFile) //nolint:errcheck
 
 			// Parse and adjust filename
 			a := Parse(tmpFile, log)
