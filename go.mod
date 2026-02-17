@@ -1,6 +1,6 @@
 module github.com/nu12/action-docs
 
-go 1.23.6
+go 1.26.0
 
 require (
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
